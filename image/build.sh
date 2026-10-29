@@ -67,11 +67,16 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 admin_ssh_key=$(<"$ADMIN_SSH_KEY_FILE")
 [[ $admin_ssh_key != *$'\n'* ]] ||
     die "$ADMIN_SSH_KEY_FILE must hold exactly one public key"
-# The recipe puts the key inside single quotes in a shell command. The pattern
-# limits the comment to characters that are safe there.
-key_re='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+([[:space:]][A-Za-z0-9@._+[:space:]-]*)?$'
+key_re='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+([[:space:]].*)?$'
 [[ $admin_ssh_key =~ $key_re ]] ||
-    die "$ADMIN_SSH_KEY_FILE is not a plain SSH public key (comment characters: letters, digits, @ . _ + - and space)"
+    die "$ADMIN_SSH_KEY_FILE does not look like an SSH public key"
+# The recipe puts the key inside single quotes in a shell command, and debos
+# reads {{ }} as template syntax. The comment must not hold these characters.
+case $admin_ssh_key in
+    *\'* | *\"* | *\\* | *\`* | *\$* | *\{* | *\}*)
+        die "the comment of the key in $ADMIN_SSH_KEY_FILE has a character that is not allowed: ' \" \\ \` \$ { }"
+        ;;
+esac
 
 command -v debos >/dev/null || die "debos is not installed"
 
