@@ -222,6 +222,17 @@ actions:
       echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
       cat /etc/fstab
 
+  # systemd-gpt-auto-generator also finds swap partitions, but it runs before
+  # systemd-repart makes this one on the first boot. A swap unit from fstab
+  # waits for the device, so the host has swap from the first boot.
+  - action: run
+    description: Activate swap by partition label
+    chroot: true
+    command: |
+      echo "Adding the swap partition to /etc/fstab"
+      echo 'PARTLABEL=swap none swap defaults,nofail 0 0' >> /etc/fstab
+      cat /etc/fstab
+
   - action: apt
     description: Install non-free firmware
     packages:

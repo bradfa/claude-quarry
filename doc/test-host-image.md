@@ -104,7 +104,7 @@ Run these commands in the SSH session.
 | # | Command | Expected result | Result |
 | --- | --- | --- | --- |
 | 4.1 | `lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS` | 4 partitions: ESP 2G, root about 30G, `swap` 4G, `vmdata` about 64G (XFS) | |
-| 4.2 | `sudo swapon --show` (a normal user has no `swapon` in the PATH) | The `swap` partition is active | |
+| 4.2 | `sudo swapon --show` (a normal user has no `swapon` in the PATH) | The `swap` partition is active on the first boot. The `fstab` line starts it when `systemd-repart` has made the partition | |
 | 4.3 | `findmnt /var/lib/libvirt` | Type `xfs`, source is the `vmdata` partition | |
 | 4.4 | `networkctl status` | One `en*` link, configured by `10-wired.network`. `ip route` has a default route | |
 | 4.5 | `cat /etc/machine-id` | A 32-character ID, not empty | |
