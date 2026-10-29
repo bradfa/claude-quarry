@@ -1,0 +1,28 @@
+# Settings for image/build.sh. Copy this file to image/build.conf and edit it.
+# Use KEY=value lines. Do not use quotes or spaces around the equals sign.
+# An environment variable with the same name overrides a value in this file.
+# build.sh asks for ADMIN_USER and ADMIN_SSH_KEY_FILE if you leave them out.
+
+# Required. Name of the first user. This user gets sudo. Root cannot log in.
+ADMIN_USER=alice
+
+# Required. Path to the public key of ADMIN_USER. The key is not secret.
+# A password login does not exist, so this key is the only way in.
+ADMIN_SSH_KEY_FILE=/home/alice/.ssh/id_ed25519.pub
+
+# How ADMIN_USER gets root with sudo.
+#   agent    sudo asks your forwarded SSH agent to sign a challenge. Connect
+#            with "ssh -A". sudo fails at the console and without an agent.
+#   nopasswd sudo does not ask for anything.
+SUDO_MODE=agent
+
+# Host name of the installed host.
+HOST_NAME=quarry-host
+
+# Size of the image file. It holds the ESP and a fixed-size root. The rest is
+# free space. On the first boot, systemd-repart adds the swap partition and
+# the VM storage partition in the free space of the target disk.
+IMAGE_SIZE=40GB
+
+# Debian mirror used for the build.
+MIRROR=http://deb.debian.org/debian/
