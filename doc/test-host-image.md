@@ -10,7 +10,7 @@ tested too.
 
 ## Prerequisites
 
-- `debos`, `bmaptool`, `qemu-system-x86_64`, and the `ovmf` package.
+- `debos`, `bmaptool`, `qemu-system-x86`, and the `ovmf` package.
 - Access to `/dev/kvm`.
 - Internet access for the build and for the time test.
 - An SSH key pair and an SSH agent that holds the key.
@@ -65,9 +65,13 @@ qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -smp 2 -m 4096 \
     -nographic
 ```
 
-Root has no password, so you cannot log in on this console. Use SSH from
-another terminal. A new host key appears on each boot, so these test commands
-do not save host keys:
+The kernel command line has `console=ttyS0,115200`, so `-nographic` shows the
+boot messages in this terminal. To stop QEMU, press Ctrl-a and then x.
+
+Root has no password and the administrator has no password, so you cannot log
+in on this console. The `login:` prompt is expected. Use SSH from another
+terminal. A new host key appears on each boot, so these test commands do not
+save host keys:
 
 ```
 ssh -A -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ADMIN_USER@localhost
@@ -75,7 +79,7 @@ ssh -A -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ADMIN
 
 | # | Check | Expected result | Result |
 | --- | --- | --- | --- |
-| 3.1 | The firmware starts systemd-boot, then Linux | The boot menu appears and then the kernel starts | |
+| 3.1 | The firmware starts systemd-boot, then Linux | The boot menu appears and then the kernel messages and a `login:` prompt appear in the terminal | |
 | 3.2 | SSH login with the key | It works within 1 minute | |
 | 3.3 | `systemctl --failed` | `0 loaded units listed` | |
 
@@ -96,6 +100,8 @@ Run these commands in the SSH session.
 | 4.9 | `systemctl is-active ssh chrony systemd-networkd systemd-resolved` | 4 lines of `active` | |
 | 4.10 | `ls -l /etc/resolv.conf` | A link to `../run/systemd/resolve/stub-resolv.conf` | |
 | 4.11 | `hostname` | The `HOST_NAME` value from `build.conf` | |
+| 4.12 | `findmnt /boot/efi` | Options include `umask=0077` | |
+| 4.13 | `sudo ls -l /boot/efi/loader/random-seed` | The file exists (the first boot made it). No access for group or others | |
 
 ## 5. Check access control on disk A
 
