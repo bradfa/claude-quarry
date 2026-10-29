@@ -21,7 +21,15 @@ tested too.
 cp image/build.conf.example image/build.conf
 ```
 
-Edit `image/build.conf`. Set `ADMIN_USER` and `ADMIN_SSH_KEY_FILE`. Then run:
+Edit `image/build.conf`. Set `ADMIN_USER` and `ADMIN_SSH_KEY_FILE`. Also set
+this line. It makes the serial port the system console, so `-nographic` in
+step 3 shows the boot messages and the login prompt:
+
+```
+KERNEL_CMDLINE_EXTRA=console=tty0 console=ttyS0,115200
+```
+
+Then run:
 
 ```
 image/build.sh
@@ -53,6 +61,7 @@ done
 | --- | --- | --- | --- |
 | 2.1 | `bmaptool copy` exit code | 0. It reports that it used the `.bmap` file | |
 | 2.2 | `ls -ls disk-a.img` | Apparent size is 100 GB. Disk use is much smaller | |
+| 2.3 | `sfdisk -d disk-a.img` | The `start=` value of each partition is a multiple of 2048 (1 MiB). The ESP type is `C12A7328-F81F-11D2-BA4B-00A0C93EC93B` and the root type is `4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709` | |
 
 ## 3. Boot disk A
 
@@ -65,8 +74,13 @@ qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -smp 2 -m 4096 \
     -nographic
 ```
 
-The kernel command line has `console=ttyS0,115200`, so `-nographic` shows the
-boot messages in this terminal. To stop QEMU, press Ctrl-a and then x.
+The image was built with `KERNEL_CMDLINE_EXTRA` (step 1), so `-nographic` shows
+the boot messages in this terminal. To stop QEMU, press Ctrl-a and then x.
+
+Do not add `systemd.mask=` for a mount unit to the boot entry to get past a
+mount problem. A masked mount that `local-fs.target` requires stops that target.
+Then systemd does not remount the root file system, and the root file system
+stays read-only. Send the boot messages instead.
 
 Root has no password and the administrator has no password, so you cannot log
 in on this console. The `login:` prompt is expected. Use SSH from another
@@ -89,7 +103,7 @@ Run these commands in the SSH session.
 
 | # | Command | Expected result | Result |
 | --- | --- | --- | --- |
-| 4.1 | `lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS` | 4 partitions: ESP 2G, root 32G, `swap` 4G, `vmdata` about 62G (XFS) | |
+| 4.1 | `lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS` | 4 partitions: ESP 2G, root about 30G, `swap` 4G, `vmdata` about 64G (XFS) | |
 | 4.2 | `swapon --show` | The `swap` partition is active | |
 | 4.3 | `findmnt /var/lib/libvirt` | Type `xfs`, source is the `vmdata` partition | |
 | 4.4 | `networkctl status` | One `en*` link, configured by `10-wired.network`. `ip route` has a default route | |
@@ -102,6 +116,7 @@ Run these commands in the SSH session.
 | 4.11 | `hostname` | The `HOST_NAME` value from `build.conf` | |
 | 4.12 | `findmnt /boot/efi` | Options include `umask=0077` | |
 | 4.13 | `sudo ls -l /boot/efi/loader/random-seed` | The file exists (the first boot made it). No access for group or others | |
+| 4.14 | `systemctl status systemd-repart.service` and `journalctl -b -u systemd-repart` | The unit exists and ran. The journal shows that it added the `swap` and `vmdata` partitions | |
 
 ## 5. Check access control on disk A
 
