@@ -19,7 +19,7 @@ Working conditions:
 - The first sessions are interactive, in tmux. Headless runs (`claude -p`) may come later.
 - The host uses UEFI, systemd-boot, and systemd-repart. It uses no LVM and no GRUB.
 
-How to read this document: (S) means a source is listed in the Sources section. (A) means an assumption from Claude's general knowledge that nobody has verified. (H) means measured on the real host on Oct 29, 2026. The measurements are in `host-discovery.txt` and `host-discovery-2.txt`. Nothing else in this plan has been tested yet. Please check every (A) item.
+How to read this document: (S) means a source is listed in the Sources section. (A) means an assumption from Claude's general knowledge that nobody has verified. (H) means measured on the real host on Oct 29, 2026. The measurements are in `host-discovery.txt` and `host-discovery-2.txt`. (V) means verified in a test of the host image in a virtual machine on Oct 29, 2026. The results are in `doc/test-host-image.md`. Nothing else in this plan has been tested yet. Please check every (A) item.
 
 ## Owner decisions
 
@@ -33,7 +33,11 @@ How to read this document: (S) means a source is listed in the Sources section. 
 | Host uplink | `eno1` on the office LAN. The Wi-Fi dongle goes away. | |
 | Host disk | Use the existing spinning disk first. | Slow builds are expected. |
 | Host baseline | A debos image. UEFI, systemd-boot, systemd-repart, no LVM. | The first install erases the whole disk. |
-| Host storage | Fixed-size root, plus an XFS partition for VM storage that grows to fill the disk. | |
+| Host storage | Fixed-size root, a 4 GiB swap partition, and an XFS partition for VM storage that fills the rest of the disk. | systemd-repart makes the last two on the first boot. |
+| Network tool | `systemd-networkd` for everything. | The image removes `ifupdown`. |
+| Host access | No root login and no passwords. The first user is in the `sudo` group and logs in with an SSH key. | `sudo` uses the forwarded SSH agent (`pam_ssh_agent_auth`) by default. The build variable `SUDO_MODE=nopasswd` gives `sudo` with no check. |
+| Time sync | `chrony` with the global `pool.ntp.org` pool. | `chrony` handles a bad clock better than `ntpd`. |
+| Image settings | The build script takes the user name, the SSH key, and other settings from environment variables, a config file, or a prompt. | The recipes hold no user name and no key. |
 | Installer | A thin debos USB installer. | |
 | Tailscale | Stays on the host. | See the Tailscale section. |
 | labgrid | Later, not now. | Keep serial device names stable. |
@@ -94,12 +98,15 @@ The runbook starts from a fixed host baseline that the owner controls. The basel
 The baseline:
 
 - Debian 13 (trixie) on a UEFI host. The recipe is adapted from the x86_64 UEFI recipes in the `debos-configs` repository. Those recipes already use systemd-boot.
-- The image has an ESP and a small root filesystem. It has no LVM and no swap partition at first (A).
-- On first boot, systemd-repart grows root to a fixed size, for example 32 GiB. It then creates an XFS partition for VM storage in the rest of the disk. The runbook mounts it at `/var/lib/libvirt`. This is (A) until a test in a VM confirms it.
+- The image has a 2 GiB ESP and a fixed-size ext4 root of about 30 GB. It has no LVM. The ESP is large because Debian keeps a copy of each kernel and initrd in `/boot` and in the ESP. The partition type GUIDs are the systemd Discoverable Partitions values, and the ESP and root start on 1 MiB boundaries (V). The partitions that systemd-repart adds start on 4 KiB boundaries.
+- Root does not grow. On first boot, systemd-repart adds a 4 GiB swap partition and an XFS partition for VM storage in the rest of the disk. `/etc/fstab` activates the swap and mounts the XFS partition at `/var/lib/libvirt` by partition label. `systemd-gpt-auto-generator` cannot find the swap partition on the first boot, because it runs before systemd-repart (V).
 - The VM storage is a separate filesystem. A runaway guest cannot fill the host root.
-- The baseline has `openssh-server`, the management user with an SSH key, and DHCP on `eno1`. The network tool is open: `ifupdown` (current) or `systemd-networkd`.
+- The `vmdata` mount has no `nofail`. A missing partition stops the boot in emergency mode, and the locked root account gives no shell. Adding `nofail` is an open decision. The runbook would then add `RequiresMountsFor=/var/lib/libvirt` to the libvirt units, so libvirt cannot write VM disks to the root filesystem.
+- The baseline has `openssh-server`, the first user with an SSH key, and DHCP on every wired NIC. The network configuration matches the type and the name pattern `en*`, so the image holds no NIC name. `systemd-networkd` configures the network (V). The recipe purges `ifupdown`, which the base system installs, so that `systemd-networkd` is the only network manager. The purge has not been built and tested yet. A NIC that is bound to `vfio-pci` has no network device on the host, so the pattern should not match it (A).
+- Root has no password and cannot log in. Password login over SSH is off (V). `sudo` uses the forwarded SSH agent by default (V).
 - The baseline has no libvirt, so the runbook can show those steps. Tailscale is an optional overlay.
-- SSH host keys and the machine ID are created on first boot. Each host must have its own.
+- SSH host keys and the machine ID are created on first boot. Each host has its own (V). The build removes the build-time machine ID, the SSH host keys, and the boot random seed.
+- The kernel command line has no console option, so a host with a monitor uses the monitor. The build variable `KERNEL_CMDLINE_EXTRA` adds options, for example a serial console for a virtual machine test.
 
 The installer:
 
@@ -110,6 +117,8 @@ The installer:
 - The boot path relies on the removable-media path in the ESP (A). Test it.
 
 Testing: nested KVM is on, on the owner's daily machine (`nested=Y`). Build the images outside Claude. Boot the installer in a VM with a larger empty disk. This tests the install, the repart growth, and runbook stages 1 to 4. It cannot test passthrough.
+
+Status on Oct 29, 2026: the host image builds with `image/build.sh` and passes steps 1 to 7 of `doc/test-host-image.md` in a QEMU virtual machine. The `nopasswd` mode, the `ifupdown` purge, the installer, and the real host are not tested yet.
 
 A reset needs a person at the host with the USB stick. The running root cannot be overwritten.
 
@@ -314,7 +323,7 @@ The largest remaining risk is theft of the Claude login token or workspace data 
 
 The rollout has eight stages, and each stage should pass its tests before the next one starts. Stages 0 to 4 need no passthrough cards.
 
-0. **Host baseline.** Build the host image and the USB installer with debos, outside Claude. Test them in a nested VM on the owner's daily machine. Write the installer to a USB stick. Boot the host from it, and run the install script with the target disk. This erases the whole disk. After the first boot, check that systemd-repart created the layout. Cable `eno1`, and confirm DHCP.
+0. **Host baseline.** Build the host image and the USB installer with debos, outside Claude. Test them in a nested VM on the owner's daily machine. Write the installer to a USB stick. Boot the host from it, and run the install script with the target disk. This erases the whole disk. After the first boot, check that systemd-repart created the layout. Cable `eno1`, and confirm DHCP. Status: the host image passes the virtual machine test (see `doc/test-host-image.md`). The installer and the real host are not done.
 1. **Host preparation.** Install the packages: `qemu-system-x86`, `libvirt-daemon-system`, `libvirt-clients`, `virtinst`, `qemu-utils`, and `ovmf`. The package `qemu-kvm` is not a real package name on Debian 13 (H). All of these packages exist in trixie (H). `virtiofsd` is not needed, because guests share nothing at first. Add the management user to the `libvirt` group. Run `virt-host-validate` ([source](https://computingforgeeks.com/?p=21285)). Run `nft list ruleset` and record the libvirt firewall backend. Create the `claude_guest` firewall table. Apply the Tailscale mitigation.
 2. **Test VM from the official Debian cloud image.** Check KVM speed, the NAT network, SSH, the nftables rules, qcow2 overlays, and suspend and resume during a running bitbake build. This separates host problems from image problems.
 3. **Own image.** Build the guest disk image with debos and replace the cloud image. Check that it boots with UEFI.
@@ -325,14 +334,13 @@ The rollout has eight stages, and each stage should pass its tests before the ne
 
 ## Open questions for the reviewer
 
-Questions 1 to 6 are about the host and passthrough. Questions 7 to 9 are about suspend and quota. Questions 10 to 14 are about Claude Code and the images.
+Questions 2 to 6 are about the host and passthrough. Questions 7 to 9 are about suspend and quota. Questions 10 to 14 are about Claude Code and the images. The numbers stay fixed. A closed question moves to the table below.
 
-1. Which network tool does the host baseline use: `ifupdown` (current) or `systemd-networkd`?
 2. What IOMMU group does the PCIe xHCI card get, and does it share a group with anything except its root port? Does it reset cleanly over many cycles?
 3. Does the added Ethernet card reset cleanly over many cycles, given that it has no function-level reset?
 4. Which firewall backend does libvirt 11.3 use on Debian 13, and does the `claude_guest` table work beside it and beside Tailscale?
 5. Is 10 GiB of RAM and 6 vCPUs right for the guest, and how long do real builds take on the spinning disk?
-6. Does systemd-repart grow root to a fixed size and create the XFS partition as designed? Does the firmware boot the written image through the removable-media path?
+6. Does the real firmware of the host boot the written image through the removable-media path? (The OVMF firmware of the virtual machine does.)
 7. How does bitbake behave across `virsh suspend` and resume, including fetches in progress and `BB_SERVER_TIMEOUT`?
 8. Does a background bitbake task that finishes after the Escape key wake Claude Code and use quota?
 9. Does Haiku usage count differently from other models against the weekly quota on Teams?
@@ -355,6 +363,9 @@ Closed by measurement or by the documentation:
 | Which command shows quota outside the session? | None is documented (S). |
 | What are the resume flags? | `-c` and `-r` (S). |
 | Is `qemu-kvm` a package? Does `virtiofsd` exist? | `qemu-kvm` has no candidate. `virtiofsd` exists, and the plan does not need it (H). |
+| Which network tool does the host baseline use? | `systemd-networkd` (owner decision). |
+| Does systemd-repart create the swap and XFS partitions as designed? | Yes, on a 100 GB virtual disk, and a second run changes nothing (V). Root stays at its fixed size. It does not grow, by design. |
+| Does `pam_ssh_agent_auth` work for `sudo` on Debian 13? | Yes. `sudo` works with a forwarded agent and fails without one (V). |
 
 ## Sources
 
