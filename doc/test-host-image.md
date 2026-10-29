@@ -61,7 +61,7 @@ done
 | --- | --- | --- | --- |
 | 2.1 | `bmaptool copy` exit code | 0. It reports that it used the `.bmap` file | |
 | 2.2 | `ls -ls disk-a.img` | Apparent size is 100 GB. Disk use is much smaller | |
-| 2.3 | `sfdisk -d disk-a.img` | The `start=` value of each partition is a multiple of 2048 (1 MiB). The ESP type is `C12A7328-F81F-11D2-BA4B-00A0C93EC93B` and the root type is `4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709` | |
+| 2.3 | `sfdisk -d disk-a.img` | The `start=` value of the ESP and of root is a multiple of 2048 (1 MiB). The `start=` value of `swap` and `vmdata` is a multiple of 8 (4 KiB), because `systemd-repart` makes them on the first boot. The ESP type is `C12A7328-F81F-11D2-BA4B-00A0C93EC93B` and the root type is `4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709` | |
 
 ## 3. Boot disk A
 
