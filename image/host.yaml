@@ -183,8 +183,13 @@ actions:
         end: 100%
         fsck: true
     mountpoints:
+      # The ESP holds the random seed of systemd-boot. A FAT file system has no
+      # file modes, so the mount options decide who can read the seed. debos
+      # puts these options in /etc/fstab only. The mount during the build
+      # ignores them, so bootctl warns about the seed in the build log.
       - mountpoint: /boot/efi/
         partition: ESP
+        options: [ defaults, umask=0077 ]
       - mountpoint: /
         partition: root
 
@@ -199,31 +204,13 @@ actions:
     command: |
       echo "Adding the VM storage mount to /etc/fstab"
       echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
-
-  # The ESP holds the random seed of systemd-boot. A FAT file system has no
-  # file modes, so the mount options decide who can read the seed.
-  - action: run
-    description: Restrict access to the ESP in fstab
-    chroot: true
-    command: |
-      set -e
-      echo "Adding umask=0077 to the /boot/efi entry in /etc/fstab"
-      awk '$2 == "/boot/efi" { $4 = $4 ",umask=0077" } { print }' /etc/fstab > /etc/fstab.new
-      mv -v /etc/fstab.new /etc/fstab
-      grep -E '/boot/efi|/var/lib/libvirt' /etc/fstab
+      cat /etc/fstab
 
   - action: apt
     description: Install non-free firmware
     packages:
       - firmware-misc-nonfree
       - firmware-realtek
-
-  - action: run
-    description: Restrict the ESP mount for the bootloader install
-    chroot: false
-    command: |
-      echo "Remounting $ROOTDIR/boot/efi with umask=0077"
-      mount -o remount,umask=0077 "$ROOTDIR/boot/efi"
 
   - action: apt
     description: Install systemd-boot bootloader
