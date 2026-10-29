@@ -77,6 +77,10 @@ qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -smp 2 -m 4096 \
 The image was built with `KERNEL_CMDLINE_EXTRA` (step 1), so `-nographic` shows
 the boot messages in this terminal. To stop QEMU, press Ctrl-a and then x.
 
+The message `systemd-ssh-generator: Failed to query local AF_VSOCK CID` is
+expected in this test. QEMU gives the guest no vsock device. The generator
+prints the message at every boot and at every `daemon-reload`. It does no harm.
+
 Do not add `systemd.mask=` for a mount unit to the boot entry to get past a
 mount problem. A masked mount that `local-fs.target` requires stops that target.
 Then systemd does not remount the root file system, and the root file system
@@ -117,6 +121,7 @@ Run these commands in the SSH session.
 | 4.12 | `findmnt /boot/efi` | Options include `umask=0077` | |
 | 4.13 | `sudo ls -l /boot/efi/loader/random-seed` | The file exists (the first boot made it). No access for group or others | |
 | 4.14 | `systemctl status systemd-repart.service` and `sudo journalctl -b -u systemd-repart` | The unit exists and ran. The journal shows that it added the `swap` and `vmdata` partitions | |
+| 4.15 | `dpkg -s ifupdown; systemctl status networking.service` | `dpkg` reports that the package is not installed. The unit does not exist | |
 
 ## 5. Check access control on disk A
 

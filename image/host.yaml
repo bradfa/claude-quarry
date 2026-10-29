@@ -271,6 +271,14 @@ actions:
       truncate -s 0 /etc/machine-id
       rm -fv /var/lib/dbus/machine-id /etc/ssh/ssh_host_*key* /boot/efi/loader/random-seed
 
+  # The base system installs ifupdown. systemd-networkd manages the network
+  # on this host, and two network managers must not run together. This step
+  # comes after all package installs, so no later install brings it back.
+  - action: run
+    description: Remove ifupdown
+    chroot: true
+    command: DEBIAN_FRONTEND=noninteractive apt-get -y purge ifupdown
+
   - action: run
     description: Clean up the apt downloaded files
     chroot: true
