@@ -49,7 +49,7 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 
 : "${SUDO_MODE:=agent}"
 : "${HOST_NAME:=quarry-host}"
-: "${IMAGE_SIZE:=40GB}"
+: "${IMAGE_SIZE:=34GB}"
 : "${MIRROR:=http://deb.debian.org/debian/}"
 
 # The recipe repeats these checks, so a typo fails in seconds and not after
@@ -61,15 +61,17 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
     die "SUDO_MODE must be agent or nopasswd"
 [[ $HOST_NAME =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] ||
     die "HOST_NAME is not a valid host name"
-[[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 40GB"
+[[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 34GB"
 
 [[ -r $ADMIN_SSH_KEY_FILE ]] || die "cannot read $ADMIN_SSH_KEY_FILE"
 admin_ssh_key=$(<"$ADMIN_SSH_KEY_FILE")
 [[ $admin_ssh_key != *$'\n'* ]] ||
     die "$ADMIN_SSH_KEY_FILE must hold exactly one public key"
-key_re='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+'
+# The recipe puts the key inside single quotes in a shell command. The pattern
+# limits the comment to characters that are safe there.
+key_re='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[[:space:]]+[A-Za-z0-9+/=]+([[:space:]][A-Za-z0-9@._+[:space:]-]*)?$'
 [[ $admin_ssh_key =~ $key_re ]] ||
-    die "$ADMIN_SSH_KEY_FILE does not look like an SSH public key"
+    die "$ADMIN_SSH_KEY_FILE is not a plain SSH public key (comment characters: letters, digits, @ . _ + - and space)"
 
 command -v debos >/dev/null || die "debos is not installed"
 

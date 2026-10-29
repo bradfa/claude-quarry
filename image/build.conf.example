@@ -19,10 +19,11 @@ SUDO_MODE=agent
 # Host name of the installed host.
 HOST_NAME=quarry-host
 
-# Size of the image file. It holds the ESP and a fixed-size root. The rest is
-# free space. On the first boot, systemd-repart adds the swap partition and
-# the VM storage partition in the free space of the target disk.
-IMAGE_SIZE=40GB
+# Size of the image file. It holds a 2 GB ESP and a fixed-size root, so the
+# default 34GB gives a 32 GB root. On the first boot, systemd-repart adds the
+# swap partition and the VM storage partition in the free space of the target
+# disk.
+IMAGE_SIZE=34GB
 
 # Debian mirror used for the build.
 MIRROR=http://deb.debian.org/debian/

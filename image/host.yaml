@@ -1,0 +1,246 @@
+# debos recipe for the claude-quarry host: Debian 13 (trixie), UEFI, systemd-boot.
+#
+# Build with image/build.sh. The script sets and checks the variables.
+# The image holds the ESP and a fixed-size root. On the first boot,
+# systemd-repart adds a swap partition and an XFS VM storage partition in the
+# free space of the target disk (see overlays/host/etc/repart.d).
+#
+# Commands that print nothing on success use -v or an echo line, so the build
+# log shows every change.
+
+{{- $admin_user := or .admin_user "" }}
+{{- $admin_ssh_key := or .admin_ssh_key "" }}
+{{- $sudo_mode := or .sudo_mode "agent" }}
+{{- $host_name := or .host_name "quarry-host" }}
+{{- $image_size := or .image_size "34GB" }}
+{{- $mirror := or .mirror "http://deb.debian.org/debian/" }}
+
+architecture: amd64
+
+actions:
+  - action: run
+    description: Stop early if a required variable is missing
+    chroot: false
+    command: |
+      [ -n '{{ $admin_user }}' ] || { echo "admin_user is not set" >&2; exit 1; }
+      [ -n '{{ $admin_ssh_key }}' ] || { echo "admin_ssh_key is not set" >&2; exit 1; }
+      [ '{{ $admin_user }}' != root ] || { echo "admin_user must not be root" >&2; exit 1; }
+      case '{{ $sudo_mode }}' in agent|nopasswd) ;; *) echo "sudo_mode must be agent or nopasswd" >&2; exit 1 ;; esac
+
+  - action: debootstrap
+    description: Debootstrap core distro
+    suite: trixie
+    components:
+      - main
+      - contrib
+      - non-free
+      - non-free-firmware
+    mirror: {{ $mirror }}
+
+  - action: run
+    description: Use the main, updates, and security repositories
+    chroot: true
+    command: |
+      set -e
+      rm -fv /etc/apt/sources.list
+      echo "Writing /etc/apt/sources.list.d/debian.sources"
+      cat > /etc/apt/sources.list.d/debian.sources <<'EOF'
+      Types: deb
+      URIs: {{ $mirror }}
+      Suites: trixie trixie-updates
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://deb.debian.org/debian-security/
+      Suites: trixie-security
+      Components: main contrib non-free non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+      EOF
+      apt-get update
+      apt-get -y dist-upgrade
+
+  - action: apt
+    description: Install base packages
+    packages:
+      - amd64-microcode
+      - ca-certificates
+      - chrony
+      - curl
+      - dosfstools
+      - ethtool
+      - intel-microcode
+      - iproute2
+      - less
+      - linux-image-amd64
+      - locales
+      - openssh-server
+      - pciutils
+      - sudo
+      - systemd-resolved
+      - tmux
+      - usbutils
+      - xfsprogs
+
+  - action: overlay
+    description: Apply system overlay files
+    source: overlays/host
+
+  - action: run
+    description: Set host name, locale, and time zone
+    chroot: true
+    command: |
+      set -e
+      echo "Setting host name to {{ $host_name }}"
+      echo '{{ $host_name }}' > /etc/hostname
+      echo "Generating the en_US.UTF-8 locale"
+      echo 'en_US.UTF-8 UTF-8' > /etc/locale.gen
+      locale-gen
+      echo 'LANG=en_US.UTF-8' > /etc/default/locale
+      ln -sfv /usr/share/zoneinfo/UTC /etc/localtime
+      echo UTC > /etc/timezone
+
+  - action: run
+    description: Create the administrator user and lock root
+    chroot: true
+    command: |
+      set -e
+      echo "Creating user {{ $admin_user }}"
+      useradd --create-home --shell /bin/bash --groups sudo '{{ $admin_user }}'
+      install -v -d -m 0700 -o '{{ $admin_user }}' -g '{{ $admin_user }}' '/home/{{ $admin_user }}/.ssh'
+      echo "Writing /home/{{ $admin_user }}/.ssh/authorized_keys"
+      printf '%s\n' '{{ $admin_ssh_key }}' > '/home/{{ $admin_user }}/.ssh/authorized_keys'
+      chown -v '{{ $admin_user }}:{{ $admin_user }}' '/home/{{ $admin_user }}/.ssh/authorized_keys'
+      chmod -v 0600 '/home/{{ $admin_user }}/.ssh/authorized_keys'
+      passwd -l root
+
+{{ if eq $sudo_mode "agent" }}
+  - action: apt
+    description: Install the PAM module for sudo with an SSH agent
+    packages:
+      - libpam-ssh-agent-auth
+
+  - action: run
+    description: Gate sudo on the SSH agent of the administrator
+    chroot: true
+    command: |
+      set -e
+      echo "Writing /etc/security/sudo_authorized_keys"
+      printf '%s\n' '{{ $admin_ssh_key }}' > /etc/security/sudo_authorized_keys
+      chmod -v 0644 /etc/security/sudo_authorized_keys
+      echo "Adding the pam_ssh_agent_auth line to /etc/pam.d/sudo"
+      sed -i '1a auth sufficient pam_ssh_agent_auth.so file=/etc/security/sudo_authorized_keys' /etc/pam.d/sudo
+      echo "Writing /etc/sudoers.d/10-quarry-agent"
+      echo 'Defaults env_keep += "SSH_AUTH_SOCK"' > /etc/sudoers.d/10-quarry-agent
+      chmod -v 0440 /etc/sudoers.d/10-quarry-agent
+      visudo -cf /etc/sudoers.d/10-quarry-agent
+{{ else }}
+  - action: run
+    description: Let the sudo group use sudo without a password
+    chroot: true
+    command: |
+      set -e
+      echo "Writing /etc/sudoers.d/10-quarry-nopasswd"
+      echo '%sudo ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/10-quarry-nopasswd
+      chmod -v 0440 /etc/sudoers.d/10-quarry-nopasswd
+      visudo -cf /etc/sudoers.d/10-quarry-nopasswd
+{{ end }}
+
+  - action: run
+    description: Enable services
+    chroot: true
+    command: |
+      set -e
+      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service
+      systemctl mask systemd-firstboot.service
+
+  - action: run
+    description: Create the mount points
+    chroot: true
+    command: mkdir -pv /var/lib/libvirt /boot/efi
+
+  # The ESP is large because Debian keeps a copy of each kernel and initrd in
+  # /boot on the root file system and another copy in the ESP.
+  - action: image-partition
+    description: Create a partitioned disk image
+    imagename: host.img
+    imagesize: {{ $image_size }}
+    partitiontype: gpt
+    partitions:
+      - name: esp
+        parlabel: ESP
+        flags: [ boot, esp ]
+        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+        fs: vfat
+        start: 0%
+        end: 2GB
+        fsck: true
+      - name: root
+        parttype: 4f68bce3-e8cd-4db1-96e7-fbcaf984b709
+        fs: ext4
+        start: 2GB
+        end: 100%
+        fsck: true
+    mountpoints:
+      - mountpoint: /boot/efi/
+        partition: esp
+      - mountpoint: /
+        partition: root
+
+  - action: filesystem-deploy
+    description: Deploy the created filesystem onto the disk image
+    setup-fstab: true
+    setup-kernel-cmdline: true
+
+  - action: run
+    description: Mount VM storage by partition label
+    chroot: true
+    command: |
+      echo "Adding the VM storage mount to /etc/fstab"
+      echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
+
+  - action: apt
+    description: Install non-free firmware
+    packages:
+      - firmware-misc-nonfree
+      - firmware-realtek
+
+  - action: apt
+    description: Install systemd-boot bootloader
+    packages:
+      - systemd-boot
+
+  - action: run
+    description: Fix up the systemd-boot default timeout
+    chroot: false
+    command: |
+      echo "Enabling the timeout in loader.conf"
+      sed -i -e "s/#timeout/timeout/g" $ROOTDIR/boot/efi/loader/loader.conf
+
+  # Some kernel-install versions add systemd.machine_id= to the entries. That
+  # option forces the build-time ID on every host made from this image.
+  - action: run
+    description: Remove the build-time machine ID from the boot entries
+    chroot: false
+    command: |
+      echo "Removing systemd.machine_id from the boot entries"
+      sed -i -E 's/ ?systemd\.machine_id=[0-9a-f]+//' $ROOTDIR/boot/efi/loader/entries/*.conf
+
+  - action: run
+    description: Remove the build-time machine ID and SSH host keys
+    chroot: true
+    command: |
+      set -e
+      echo "Emptying /etc/machine-id"
+      truncate -s 0 /etc/machine-id
+      rm -fv /var/lib/dbus/machine-id /etc/ssh/ssh_host_*key*
+
+  - action: run
+    description: Clean up the apt downloaded files
+    chroot: true
+    command: apt-get clean
+
+  - action: run
+    description: Create bmaptool map file for the deployed disk image
+    postprocess: true
+    command: bmaptool create host.img > host.bmap

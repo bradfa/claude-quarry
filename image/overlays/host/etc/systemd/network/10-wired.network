@@ -1,0 +1,18 @@
+# Match by type and name pattern, not by one fixed name, so the same image
+# works on any board. A NIC bound to vfio-pci has no network device on the
+# host, so this file never matches the NIC that goes to the guest.
+[Match]
+Type=ether
+Name=en*
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=yes
+
+# A second wired NIC must not take the default route from the first one.
+[DHCPv4]
+RouteMetric=100
+
+# An NIC without a cable must not block the boot. See the wait-online drop-in.
+[Link]
+RequiredForOnline=no

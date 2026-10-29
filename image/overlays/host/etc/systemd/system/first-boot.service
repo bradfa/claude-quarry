@@ -1,0 +1,13 @@
+# The image holds no SSH host keys, so each host makes its own. The condition
+# makes the unit safe to run again: it does nothing when the keys exist.
+[Unit]
+Description=Generate SSH host keys
+ConditionPathExists=!/etc/ssh/ssh_host_ed25519_key
+Before=ssh.service ssh.socket
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -A
+
+[Install]
+WantedBy=multi-user.target
