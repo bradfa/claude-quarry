@@ -18,11 +18,12 @@ host. The runbook marks a step as verified only after that run.
 | Path | Purpose | State |
 | --- | --- | --- |
 | `doc/plan-sandboxed-autonomous-claude-in-kvm.md` | The plan. It gives the goals, the decisions, the risks, and the open questions. It explains why. | Exists |
+| `doc/test-host-image.md` | Test steps for the host image in a virtual machine, with an expected result for each step. | Exists |
 | `doc/runbook-*.md` | The runbook. It gives exact steps from a fresh Debian 13 install to a working guest, with a check after each step. It explains how. | Planned |
 | `host/` | Host files: discovery script, firewall rules, libvirt XML, and systemd timers. | Planned |
 | `host/discovery/` | Output of the discovery script, saved from real hosts. | Planned |
 | `guest/` | Guest files: provisioning script, Claude Code settings template, and guest CLAUDE.md. | Planned |
-| `image/` | debos recipes and overlay files: the host baseline, the USB installer, and the guest base image. | Planned |
+| `image/` | debos recipes and overlay files: the host baseline, the USB installer, and the guest base image. `image/build.sh` builds them in a fixed order. | Host baseline exists, not yet tested. Installer and guest are planned |
 
 ## Prerequisites
 
