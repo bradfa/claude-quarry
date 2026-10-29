@@ -14,6 +14,7 @@
 {{- $host_name := or .host_name "quarry-host" }}
 {{- $image_size := or .image_size "34GB" }}
 {{- $mirror := or .mirror "http://deb.debian.org/debian/" }}
+{{- $kernel_cmdline_extra := or .kernel_cmdline_extra "" }}
 
 architecture: amd64
 
@@ -77,6 +78,7 @@ actions:
       - openssh-server
       - pciutils
       - sudo
+      - systemd-repart
       - systemd-resolved
       - tmux
       - usbutils
@@ -162,6 +164,14 @@ actions:
 
   # The ESP is large because Debian keeps a copy of each kernel and initrd in
   # /boot on the root file system and another copy in the ESP.
+  #
+  # The partition type GUIDs come from the Discoverable Partitions
+  # Specification, so systemd and other tools find the ESP and the root
+  # partition by type. Start and end values use sectors (512 bytes). Every
+  # start is a multiple of 2048 sectors (1 MiB), which keeps the partitions
+  # aligned on SSDs and on disks with 4 KiB sectors. The end value is the last
+  # sector of the partition. The partition table needs the first 1 MiB, and
+  # image/build.sh checks the alignment after the build.
   - action: image-partition
     description: Create a partitioned disk image
     imagename: host.img
@@ -171,15 +181,15 @@ actions:
       - name: ESP
         parlabel: ESP
         flags: [ boot, esp ]
-        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b # EFI System Partition
         fs: vfat
-        start: 0%
-        end: 2GB
+        start: 2048s
+        end: 4196351s # 2 GiB
         fsck: true
       - name: root
-        parttype: 4f68bce3-e8cd-4db1-96e7-fbcaf984b709
+        parttype: 4f68bce3-e8cd-4db1-96e7-fbcaf984b709 # Root partition, x86-64
         fs: ext4
-        start: 2GB
+        start: 4196352s
         end: 100%
         fsck: true
     mountpoints:
@@ -197,10 +207,12 @@ actions:
     description: Deploy the created filesystem onto the disk image
     setup-fstab: true
     setup-kernel-cmdline: true
-    # The last console= option is the system console. A host without a serial
-    # port ignores console=ttyS0. A virtual machine with -nographic and a lab
-    # board with a serial cable show the boot messages on it.
-    append-kernel-cmdline: console=ttyS0,115200 console=tty0
+{{- if $kernel_cmdline_extra }}
+    # Set with KERNEL_CMDLINE_EXTRA, for example a serial console for a test in
+    # a virtual machine. The last console= option is the system console, so
+    # the image has no console= option by default: the host needs the monitor.
+    append-kernel-cmdline: {{ $kernel_cmdline_extra }}
+{{- end }}
 
   - action: run
     description: Mount VM storage by partition label

@@ -27,7 +27,7 @@ load_config() {
     while IFS='=' read -r key value || [[ -n $key ]]; do
         [[ $key =~ ^[[:space:]]*(#|$) ]] && continue
         case $key in
-            ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | MIRROR) ;;
+            ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | MIRROR | KERNEL_CMDLINE_EXTRA) ;;
             *) die "unknown setting in $file: $key" ;;
         esac
         [[ -n ${!key:-} ]] || printf -v "$key" '%s' "$value"
@@ -51,6 +51,7 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 : "${HOST_NAME:=quarry-host}"
 : "${IMAGE_SIZE:=34GB}"
 : "${MIRROR:=http://deb.debian.org/debian/}"
+: "${KERNEL_CMDLINE_EXTRA:=}"
 
 # The recipe repeats these checks, so a typo fails in seconds and not after
 # a debootstrap run.
@@ -62,6 +63,13 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 [[ $HOST_NAME =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] ||
     die "HOST_NAME is not a valid host name"
 [[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 34GB"
+# The recipe puts this value in a YAML file, and debos reads {{ }} as template
+# syntax. Kernel options do not need these characters.
+case $KERNEL_CMDLINE_EXTRA in
+    *[\'\"\\\`\$\{\}]* | *$'\n'*)
+        die "KERNEL_CMDLINE_EXTRA has a character that is not allowed: ' \" \\ \` \$ { } or a new line"
+        ;;
+esac
 
 [[ -r $ADMIN_SSH_KEY_FILE ]] || die "cannot read $ADMIN_SSH_KEY_FILE"
 admin_ssh_key=$(<"$ADMIN_SSH_KEY_FILE")
@@ -88,6 +96,7 @@ build_host() {
         -t "host_name:$HOST_NAME" \
         -t "image_size:$IMAGE_SIZE" \
         -t "mirror:$MIRROR" \
+        -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
         "$script_dir/host.yaml"
 }
 

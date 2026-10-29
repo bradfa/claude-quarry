@@ -20,10 +20,23 @@ SUDO_MODE=agent
 HOST_NAME=quarry-host
 
 # Size of the image file. It holds a 2 GB ESP and a fixed-size root, so the
-# default 34GB gives a 32 GB root. On the first boot, systemd-repart adds the
+# default 34GB gives a root of about 30 GB. On the first boot, systemd-repart adds the
 # swap partition and the VM storage partition in the free space of the target
 # disk.
 IMAGE_SIZE=34GB
+
+# Extra kernel command line options. The last console= option is the system
+# console. Boot messages, the emergency prompt, and the login prompt appear on
+# it. Choose the example that fits how you work with the host.
+#
+# Example 1: a desktop or a laptop with a monitor. Leave the value empty. The
+# kernel then uses the monitor as the system console.
+KERNEL_CMDLINE_EXTRA=
+#
+# Example 2: a test in a virtual machine (QEMU with -nographic), or a host that
+# you operate over a serial cable. The serial port becomes the system console.
+# The monitor still shows the kernel messages.
+#KERNEL_CMDLINE_EXTRA=console=tty0 console=ttyS0,115200
 
 # Debian mirror used for the build.
 MIRROR=http://deb.debian.org/debian/
