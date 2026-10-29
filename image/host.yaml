@@ -58,7 +58,7 @@ actions:
       Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
       EOF
       apt-get update
-      apt-get -y dist-upgrade
+      DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade
 
   - action: apt
     description: Install base packages
@@ -81,6 +81,7 @@ actions:
       - tmux
       - usbutils
       - xfsprogs
+      - zstd
 
   - action: overlay
     description: Apply system overlay files
@@ -167,7 +168,7 @@ actions:
     imagesize: {{ $image_size }}
     partitiontype: gpt
     partitions:
-      - name: esp
+      - name: ESP
         parlabel: ESP
         flags: [ boot, esp ]
         parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
@@ -183,7 +184,7 @@ actions:
         fsck: true
     mountpoints:
       - mountpoint: /boot/efi/
-        partition: esp
+        partition: ESP
       - mountpoint: /
         partition: root
 
@@ -199,11 +200,30 @@ actions:
       echo "Adding the VM storage mount to /etc/fstab"
       echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
 
+  # The ESP holds the random seed of systemd-boot. A FAT file system has no
+  # file modes, so the mount options decide who can read the seed.
+  - action: run
+    description: Restrict access to the ESP in fstab
+    chroot: true
+    command: |
+      set -e
+      echo "Adding umask=0077 to the /boot/efi entry in /etc/fstab"
+      awk '$2 == "/boot/efi" { $4 = $4 ",umask=0077" } { print }' /etc/fstab > /etc/fstab.new
+      mv -v /etc/fstab.new /etc/fstab
+      grep -E '/boot/efi|/var/lib/libvirt' /etc/fstab
+
   - action: apt
     description: Install non-free firmware
     packages:
       - firmware-misc-nonfree
       - firmware-realtek
+
+  - action: run
+    description: Restrict the ESP mount for the bootloader install
+    chroot: false
+    command: |
+      echo "Remounting $ROOTDIR/boot/efi with umask=0077"
+      mount -o remount,umask=0077 "$ROOTDIR/boot/efi"
 
   - action: apt
     description: Install systemd-boot bootloader
@@ -243,4 +263,4 @@ actions:
   - action: run
     description: Create bmaptool map file for the deployed disk image
     postprocess: true
-    command: bmaptool create host.img > host.bmap
+    command: bmaptool create --output "$ARTIFACTDIR/host.bmap" "$ARTIFACTDIR/host.img"
