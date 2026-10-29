@@ -104,19 +104,19 @@ Run these commands in the SSH session.
 | # | Command | Expected result | Result |
 | --- | --- | --- | --- |
 | 4.1 | `lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS` | 4 partitions: ESP 2G, root about 30G, `swap` 4G, `vmdata` about 64G (XFS) | |
-| 4.2 | `swapon --show` | The `swap` partition is active | |
+| 4.2 | `sudo swapon --show` (a normal user has no `swapon` in the PATH) | The `swap` partition is active | |
 | 4.3 | `findmnt /var/lib/libvirt` | Type `xfs`, source is the `vmdata` partition | |
 | 4.4 | `networkctl status` | One `en*` link, configured by `10-wired.network`. `ip route` has a default route | |
 | 4.5 | `cat /etc/machine-id` | A 32-character ID, not empty | |
 | 4.6 | `cat /proc/cmdline` | No `systemd.machine_id=` option | |
-| 4.7 | `bootctl list` | At least one entry for the installed kernel | |
+| 4.7 | `sudo bootctl list` (the ESP is only readable by root) | At least one entry for the installed kernel | |
 | 4.8 | `chronyc sources` | Servers from `pool.ntp.org` appear. At least one has a `*` or `+` after a few minutes | |
 | 4.9 | `systemctl is-active ssh chrony systemd-networkd systemd-resolved` | 4 lines of `active` | |
 | 4.10 | `ls -l /etc/resolv.conf` | A link to `../run/systemd/resolve/stub-resolv.conf` | |
 | 4.11 | `hostname` | The `HOST_NAME` value from `build.conf` | |
 | 4.12 | `findmnt /boot/efi` | Options include `umask=0077` | |
 | 4.13 | `sudo ls -l /boot/efi/loader/random-seed` | The file exists (the first boot made it). No access for group or others | |
-| 4.14 | `systemctl status systemd-repart.service` and `journalctl -b -u systemd-repart` | The unit exists and ran. The journal shows that it added the `swap` and `vmdata` partitions | |
+| 4.14 | `systemctl status systemd-repart.service` and `sudo journalctl -b -u systemd-repart` | The unit exists and ran. The journal shows that it added the `swap` and `vmdata` partitions | |
 
 ## 5. Check access control on disk A
 
@@ -135,8 +135,9 @@ Run `sudo systemctl reboot`, then start QEMU again with the same command.
 | # | Check | Expected result | Result |
 | --- | --- | --- | --- |
 | 6.1 | `cat /etc/machine-id` | The same ID as in 4.5 | |
-| 6.2 | `journalctl -b -u systemd-repart` | It reports `No changes`, or no change to the partitions | |
+| 6.2 | `sudo journalctl -b -u systemd-repart` | It reports `No changes`, or no change to the partitions | |
 | 6.3 | `systemctl --failed` | `0 loaded units listed` | |
+| 6.4 | `sudo swapon --show` | The `swap` partition is active | |
 
 ## 7. Boot disk B and compare
 
