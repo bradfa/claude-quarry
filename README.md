@@ -22,7 +22,7 @@ host. The runbook marks a step as verified only after that run.
 | `host/` | Host files: discovery script, firewall rules, libvirt XML, and systemd timers. | Planned |
 | `host/discovery/` | Output of the discovery script, saved from real hosts. | Planned |
 | `guest/` | Guest files: provisioning script, Claude Code settings template, and guest CLAUDE.md. | Planned |
-| `image/` | debos recipe and overlay files for the guest base image. | Planned |
+| `image/` | debos recipes and overlay files: the host baseline, the USB installer, and the guest base image. | Planned |
 
 ## Prerequisites
 
@@ -56,5 +56,10 @@ The runbook will replace step 2 with a discovery script.
 
 ## Related work
 
-The `image/` recipe is planned as an adaptation of the x86_64 UEFI recipes in
+The `image/` recipes are planned as adaptations of the x86_64 UEFI recipes in
 the `debos-configs` repository.
+
+## Warning
+
+The planned host installer erases the whole target disk. The runbook will say
+this on its first page.
