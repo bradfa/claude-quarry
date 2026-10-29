@@ -189,7 +189,7 @@ actions:
       # ignores them, so bootctl warns about the seed in the build log.
       - mountpoint: /boot/efi/
         partition: ESP
-        options: [ defaults, umask=0077 ]
+        options: [ umask=0077 ]
       - mountpoint: /
         partition: root
 
@@ -197,6 +197,10 @@ actions:
     description: Deploy the created filesystem onto the disk image
     setup-fstab: true
     setup-kernel-cmdline: true
+    # The last console= option is the system console. A host without a serial
+    # port ignores console=ttyS0. A virtual machine with -nographic and a lab
+    # board with a serial cable show the boot messages on it.
+    append-kernel-cmdline: console=ttyS0,115200 console=tty0
 
   - action: run
     description: Mount VM storage by partition label
@@ -233,14 +237,16 @@ actions:
       echo "Removing systemd.machine_id from the boot entries"
       sed -i -E 's/ ?systemd\.machine_id=[0-9a-f]+//' $ROOTDIR/boot/efi/loader/entries/*.conf
 
+  # Every host must have its own boot random seed. bootctl makes a new file on
+  # the first boot.
   - action: run
-    description: Remove the build-time machine ID and SSH host keys
+    description: Remove the build-time machine ID, SSH host keys, and random seed
     chroot: true
     command: |
       set -e
       echo "Emptying /etc/machine-id"
       truncate -s 0 /etc/machine-id
-      rm -fv /var/lib/dbus/machine-id /etc/ssh/ssh_host_*key*
+      rm -fv /var/lib/dbus/machine-id /etc/ssh/ssh_host_*key* /boot/efi/loader/random-seed
 
   - action: run
     description: Clean up the apt downloaded files
