@@ -11,15 +11,15 @@ tested too.
 ## Status
 
 First run on 2026-10-29, in a QEMU virtual machine on the owner's daily
-machine. Steps 1 to 7 pass. Disks A and B booted from one image and have
-different machine IDs and different SSH host keys.
+machine. Steps 1 to 8 pass. Disks A and B booted from one image and have
+different machine IDs and different SSH host keys. The `nopasswd` build (step
+8) passes too. It also showed that the recipe purges `ifupdown` (check 4.15)
+and that the swap is active on the first boot.
 
 Open:
 
-- Step 8 (the `nopasswd` mode) has not run.
 - Step 9 (a disk with no free space) has not run. It tests the `nofail` option
   on the `vmdata` mount.
-- Check 4.15 (`ifupdown` is gone) needs a build that has the purge step.
 - Nothing has run on the real host yet. The `en*` network match and the
   removable-media boot path need the real hardware (see Risks).
 
@@ -161,7 +161,7 @@ Run these commands in the SSH session.
 | 4.12 | `findmnt /boot/efi` | Options include `umask=0077` | Pass. `fmask=0077,dmask=0077` |
 | 4.13 | `sudo ls -l /boot/efi/loader/random-seed` | The file exists (the first boot made it). No access for group or others | Pass. `-rwx------ root root` |
 | 4.14 | `systemctl status systemd-repart.service` and `sudo journalctl -b -u systemd-repart` | The unit exists and ran. The journal shows that it added the `swap` and `vmdata` partitions | Pass |
-| 4.15 | `dpkg -s ifupdown; systemctl status networking.service` | `dpkg` reports that the package is not installed. The unit does not exist | Not run. Needs a build with the purge step. The owner purged the package by hand: only `ifupdown` went, and the network kept working |
+| 4.15 | `dpkg -s ifupdown; systemctl status networking.service` | `dpkg` reports that the package is not installed. The unit does not exist | Pass on the `nopasswd` build (step 8). `dpkg` reports that `ifupdown` is not installed, and `networking.service` does not exist |
 
 ## 5. Check access control on disk A
 
@@ -204,8 +204,8 @@ purge, so check 4.15 and check 4.2 can run on it too.
 
 | # | Command | Expected result | Result |
 | --- | --- | --- | --- |
-| 8.1 | In a session without `-A`: `sudo -n true; echo $?` | `0`, and no prompt | Not run |
-| 8.2 | `ls /etc/security/sudo_authorized_keys` | The file does not exist | Not run |
+| 8.1 | In a session without `-A`: `sudo -n true; echo $?` | `0`, and no prompt | Pass. `sudo true` works with no password and no SSH agent |
+| 8.2 | `ls /etc/security/sudo_authorized_keys` | The file does not exist | Pass |
 
 ## 9. Boot a disk with no free space
 

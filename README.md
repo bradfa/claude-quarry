@@ -8,10 +8,11 @@ alone. Later, the owner reviews the result with Claude.
 ## Status
 
 This project is in an early stage. The plan exists. The host baseline image
-builds, and it passes the virtual machine test (steps 1 to 7 of
-`doc/test-host-image.md`, run on 2026-10-29). These parts do not exist yet: the
-USB installer, the discovery script, the runbook, and the guest image. Nothing
-has run on the real host.
+builds, and it passes the virtual machine test (steps 1 to 8 of
+`doc/test-host-image.md`, run on 2026-10-29 and 2026-10-30). The USB installer
+recipe exists, but nobody has built or tested it yet (`doc/test-installer.md`).
+These parts do not exist yet: the discovery script, the runbook, and the guest
+image. Nothing has run on the real host.
 
 The runbook is written one step at a time. A person runs each step on a real
 host. The runbook marks a step as verified only after that run.
@@ -21,12 +22,13 @@ host. The runbook marks a step as verified only after that run.
 | Path | Purpose | State |
 | --- | --- | --- |
 | `doc/plan-sandboxed-autonomous-claude-in-kvm.md` | The plan. It gives the goals, the decisions, the risks, and the open questions. It explains why. | Exists |
-| `doc/test-host-image.md` | Test steps for the host image in a virtual machine, with an expected result and the real result of each step. | Exists. Steps 1 to 7 pass. Step 8 has not run |
+| `doc/test-host-image.md` | Test steps for the host image in a virtual machine, with an expected result and the real result of each step. | Exists. Steps 1 to 8 pass. Step 9 has not run |
+| `doc/test-installer.md` | Test steps for the USB installer in a virtual machine, with an expected result for each step. | Exists. Nothing has run |
 | `doc/runbook-*.md` | The runbook. It gives exact steps from a fresh Debian 13 install to a working guest, with a check after each step. It explains how. | Planned |
 | `host/` | Host files: discovery script, firewall rules, libvirt XML, and systemd timers. | Planned |
 | `host/discovery/` | Output of the discovery script, saved from real hosts. | Planned |
 | `guest/` | Guest files: provisioning script, Claude Code settings template, and guest CLAUDE.md. | Planned |
-| `image/` | debos recipes and overlay files: the host baseline, the USB installer, and the guest base image. `image/build.sh` builds them in a fixed order. | The host baseline builds and boots in a virtual machine. The installer and the guest image are planned |
+| `image/` | debos recipes and overlay files: the host baseline, the USB installer, and the guest base image. `image/build.sh` builds them in a fixed order. | The host baseline builds and boots in a virtual machine. The installer recipe exists and is not tested. The guest image is planned |
 
 ## Prerequisites
 
@@ -68,14 +70,22 @@ you leave them out, and it stops with an error if a value is missing. Then run:
 image/build.sh
 ```
 
-The script writes `image/build/host.img` and `image/build/host.bmap`. The root
-account is locked, and password login is off, so the SSH key is the only way
-in.
+The script builds the host image and then the USB installer. It writes
+`image/build/host.img`, `host.img.gz`, and `host.bmap` for the host image, and
+`image/build/installer.img` and `installer.bmap` for the installer. To build
+only the host image, run `image/build.sh host`. The root account is locked, and
+password login is off, so the SSH key is the only way in.
 
 ### Test the host image
 
 Follow `doc/test-host-image.md`. It boots the image in QEMU and checks the
 disk layout, the network, the access control, and the first-boot identity.
+
+### Test the USB installer
+
+Follow `doc/test-installer.md`. It boots the installer in QEMU, writes the host
+image to an empty virtual disk, and boots that disk. The installer is not
+tested yet.
 
 ## Conventions
 

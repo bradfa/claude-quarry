@@ -102,8 +102,8 @@ The baseline:
 - Root does not grow. On first boot, systemd-repart adds a 4 GiB swap partition and an XFS partition for VM storage in the rest of the disk. `/etc/fstab` activates the swap and mounts the XFS partition at `/var/lib/libvirt` by partition label. `systemd-gpt-auto-generator` cannot find the swap partition on the first boot, because it runs before systemd-repart (V).
 - The VM storage is a separate filesystem. A runaway guest cannot fill the host root.
 - The `vmdata` mount has `nofail`. A missing partition does not stop the boot, so the host stays reachable. Without `nofail`, the boot would end in emergency mode, and the locked root account gives no shell. The owner chose this because the host always has a way to reach a console (a monitor, a KVM switch, a serial console server, or a BMC), and a host that fails safe is better. The runbook adds `RequiresMountsFor=/var/lib/libvirt` to the libvirt units, so libvirt cannot write VM disks to the root filesystem. The boot without the partition is not tested yet (step 9 of `doc/test-host-image.md`).
-- The baseline has `openssh-server`, the first user with an SSH key, and DHCP on every wired NIC. The network configuration matches the type and the name pattern `en*`, so the image holds no NIC name. `systemd-networkd` configures the network (V). The recipe purges `ifupdown`, which the base system installs, so that `systemd-networkd` is the only network manager. The purge has not been built and tested yet. A NIC that is bound to `vfio-pci` has no network device on the host, so the pattern should not match it (A).
-- Root has no password and cannot log in. Password login over SSH is off (V). `sudo` uses the forwarded SSH agent by default (V).
+- The baseline has `openssh-server`, the first user with an SSH key, and DHCP on every wired NIC. The network configuration matches the type and the name pattern `en*`, so the image holds no NIC name. `systemd-networkd` configures the network (V). The recipe purges `ifupdown`, which the base system installs, so that `systemd-networkd` is the only network manager. The purge is built and tested (V). A NIC that is bound to `vfio-pci` has no network device on the host, so the pattern should not match it (A).
+- Root has no password and cannot log in. Password login over SSH is off (V). `sudo` uses the forwarded SSH agent by default (V). The `nopasswd` mode works without a password and without an agent (V).
 - The baseline has no libvirt, so the runbook can show those steps. Tailscale is an optional overlay.
 - SSH host keys and the machine ID are created on first boot. Each host has its own (V). The build removes the build-time machine ID, the SSH host keys, and the boot random seed.
 - The kernel command line has no console option, so a host with a monitor uses the monitor. The build variable `KERNEL_CMDLINE_EXTRA` adds options, for example a serial console for a virtual machine test.
@@ -118,7 +118,7 @@ The installer:
 
 Testing: nested KVM is on, on the owner's daily machine (`nested=Y`). Build the images outside Claude. Boot the installer in a VM with a larger empty disk. This tests the install, the repart growth, and runbook stages 1 to 4. It cannot test passthrough.
 
-Status on Oct 29, 2026: the host image builds with `image/build.sh` and passes steps 1 to 7 of `doc/test-host-image.md` in a QEMU virtual machine. The `nopasswd` mode, the `ifupdown` purge, the installer, and the real host are not tested yet.
+Status on Oct 30, 2026: the host image builds with `image/build.sh` and passes steps 1 to 8 of `doc/test-host-image.md` in a QEMU virtual machine. The installer recipe (`image/installer.yaml`) exists, and `doc/test-installer.md` holds its test. It carries the host image as `host.img.gz` and writes it with `bmaptool`, which reads a gzip image with the `.bmap` file of the uncompressed image. The installer logs in as root on the console without a password, because it has no network service and needs the physical stick. The installer and the real host are not tested yet.
 
 A reset needs a person at the host with the USB stick. The running root cannot be overwritten.
 
@@ -323,7 +323,7 @@ The largest remaining risk is theft of the Claude login token or workspace data 
 
 The rollout has eight stages, and each stage should pass its tests before the next one starts. Stages 0 to 4 need no passthrough cards.
 
-0. **Host baseline.** Build the host image and the USB installer with debos, outside Claude. Test them in a nested VM on the owner's daily machine. Write the installer to a USB stick. Boot the host from it, and run the install script with the target disk. This erases the whole disk. After the first boot, check that systemd-repart created the layout. Cable `eno1`, and confirm DHCP. Status: the host image passes the virtual machine test (see `doc/test-host-image.md`). The installer and the real host are not done.
+0. **Host baseline.** Build the host image and the USB installer with debos, outside Claude. Test them in a nested VM on the owner's daily machine. Write the installer to a USB stick. Boot the host from it, and run the install script with the target disk. This erases the whole disk. After the first boot, check that systemd-repart created the layout. Cable `eno1`, and confirm DHCP. Status: the host image passes the virtual machine test (see `doc/test-host-image.md`). The installer recipe exists, and its test is in `doc/test-installer.md`. Nobody has built or run the installer yet. The real host is not done.
 1. **Host preparation.** Install the packages: `qemu-system-x86`, `libvirt-daemon-system`, `libvirt-clients`, `virtinst`, `qemu-utils`, and `ovmf`. The package `qemu-kvm` is not a real package name on Debian 13 (H). All of these packages exist in trixie (H). `virtiofsd` is not needed, because guests share nothing at first. Add the management user to the `libvirt` group. Run `virt-host-validate` ([source](https://computingforgeeks.com/?p=21285)). Run `nft list ruleset` and record the libvirt firewall backend. Create the `claude_guest` firewall table. Apply the Tailscale mitigation.
 2. **Test VM from the official Debian cloud image.** Check KVM speed, the NAT network, SSH, the nftables rules, qcow2 overlays, and suspend and resume during a running bitbake build. This separates host problems from image problems.
 3. **Own image.** Build the guest disk image with debos and replace the cloud image. Check that it boots with UEFI.
@@ -347,7 +347,6 @@ Questions 2 to 6 are about the host and passthrough. Questions 7 to 9 are about 
 10. How should plugins be installed: `--plugin-dir` or a local marketplace? How do `enabledPlugins` and `extraKnownMarketplaces` behave in user settings?
 11. What does the `autoMode.environment` guidance need to say? Read the auto mode configuration page.
 12. Does auto mode still work with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`?
-13. Does debos have an action that includes one recipe in another? Does `bmaptool` 3.9 write compressed images with a `.bmap` file?
 14. Does the company allow unattended automation on a Teams login, and what is the procedure if the token leaks? An API key with a spend limit is an alternative.
 
 Closed by measurement or by the documentation:
@@ -366,6 +365,8 @@ Closed by measurement or by the documentation:
 | Which network tool does the host baseline use? | `systemd-networkd` (owner decision). |
 | Does systemd-repart create the swap and XFS partitions as designed? | Yes, on a 100 GB virtual disk, and a second run changes nothing (V). Root stays at its fixed size. It does not grow, by design. |
 | Does `pam_ssh_agent_auth` work for `sudo` on Debian 13? | Yes. `sudo` works with a forwarded agent and fails without one (V). |
+| Does `bmaptool` 3.9 read a compressed image with a `.bmap` file? | It reads `.gz` and other formats (`bmaptool copy --help`, S). It does not write compressed images. The host recipe makes the `.bmap` file first and then runs `gzip --keep`. The `.bmap` file stays valid, because it describes the uncompressed image. The installer copy of this has not run yet (A). |
+| Does debos include one recipe in another? | The installer does not need it. The installer recipe copies `host.img.gz` and `host.bmap` from the artifact directory (`$ARTIFACTDIR`) into its root file system. `image/build.sh` builds the two recipes in a fixed order. |
 
 ## Sources
 
