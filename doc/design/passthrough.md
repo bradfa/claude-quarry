@@ -58,6 +58,14 @@ A member of the `libvirt` group probably has close to root access on the host
 so the group adds no new privilege there. The trust moves to the hypervisor and
 the IOMMU.
 
+## Host preparation
+
+Install these packages on the host: `qemu-system-x86`, `libvirt-daemon-system`,
+`libvirt-clients`, `virtinst`, `qemu-utils`, and `ovmf`. All of them exist in
+Debian 13. The package `qemu-kvm` is not a real package name there. `virtiofsd`
+is not needed, because guests share nothing at first. Add the management user to
+the `libvirt` group. Run `virt-host-validate` to check the host.
+
 ## Reference host measurements
 
 These facts come from the discovery output of the reference host.
