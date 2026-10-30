@@ -25,6 +25,12 @@ HOST_NAME=quarry-host
 # disk.
 IMAGE_SIZE=34GB
 
+# Size of the USB installer image. It holds a small Debian system and the
+# compressed host image, which is much smaller than IMAGE_SIZE. The USB stick
+# must be at least this large. Raise the value if the installer build stops
+# because the file system is full.
+INSTALLER_SIZE=8GB
+
 # Extra kernel command line options. The last console= option is the system
 # console. Boot messages, the emergency prompt, and the login prompt appear on
 # it. Choose the example that fits how you work with the host.

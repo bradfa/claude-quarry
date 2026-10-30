@@ -7,7 +7,10 @@
 #   3. a prompt, only when stdin is a terminal
 # A required setting with no value stops the script before debos starts.
 #
-# Usage: image/build.sh [host]
+# Usage: image/build.sh [host] [installer]
+#
+# With no target, the script builds the host image and then the installer. The
+# installer carries the host image, so the order is fixed.
 
 set -euo pipefail
 
@@ -27,7 +30,7 @@ load_config() {
     while IFS='=' read -r key value || [[ -n $key ]]; do
         [[ $key =~ ^[[:space:]]*(#|$) ]] && continue
         case $key in
-            ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | MIRROR | KERNEL_CMDLINE_EXTRA) ;;
+            ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | INSTALLER_SIZE | MIRROR | KERNEL_CMDLINE_EXTRA) ;;
             *) die "unknown setting in $file: $key" ;;
         esac
         [[ -n ${!key:-} ]] || printf -v "$key" '%s' "$value"
@@ -50,6 +53,7 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 : "${SUDO_MODE:=agent}"
 : "${HOST_NAME:=quarry-host}"
 : "${IMAGE_SIZE:=34GB}"
+: "${INSTALLER_SIZE:=8GB}"
 : "${MIRROR:=http://deb.debian.org/debian/}"
 : "${KERNEL_CMDLINE_EXTRA:=}"
 
@@ -63,6 +67,7 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 [[ $HOST_NAME =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] ||
     die "HOST_NAME is not a valid host name"
 [[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 34GB"
+[[ $INSTALLER_SIZE =~ ^[0-9]+GB$ ]] || die "INSTALLER_SIZE must look like 8GB"
 # The recipe puts this value in a YAML file, and debos reads {{ }} as template
 # syntax. Kernel options do not need these characters.
 case $KERNEL_CMDLINE_EXTRA in
@@ -100,15 +105,24 @@ build_host() {
         "$script_dir/host.yaml"
 }
 
+build_installer() {
+    debos --artifactdir="$build_dir" \
+        -t "installer_size:$INSTALLER_SIZE" \
+        -t "mirror:$MIRROR" \
+        -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
+        "$script_dir/installer.yaml"
+}
+
 mkdir -p "$build_dir"
 
 if (($# == 0)); then
-    set -- host
+    set -- host installer
 fi
 
 for target in "$@"; do
     case $target in
         host) build_host ;;
+        installer) build_installer ;;
         *) die "unknown target: $target" ;;
     esac
 done
