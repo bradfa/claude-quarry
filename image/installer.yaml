@@ -1,0 +1,122 @@
+# debos recipe for the claude-quarry USB installer: a small Debian 13 (trixie)
+# system that boots by UEFI, and the host image on its root file system.
+#
+# Build the host image first (image/build.sh host). This recipe reads
+# host.img.gz and host.bmap from the artifact directory. Build with
+# image/build.sh, and write the result to a USB stick with bmaptool.
+# The installer system logs in as root on the console without a password,
+# because it has no network service and the user needs physical access to the
+# stick anyway.
+#
+# Commands that print nothing on success use -v or an echo line, so the build
+# log shows every change.
+
+{{- $installer_size := or .installer_size "8GB" }}
+{{- $mirror := or .mirror "http://deb.debian.org/debian/" }}
+{{- $kernel_cmdline_extra := or .kernel_cmdline_extra "" }}
+
+architecture: amd64
+
+actions:
+  - action: run
+    description: Stop early if the host image is missing
+    chroot: false
+    command: |
+      for file in host.img.gz host.bmap; do
+        [ -r "$ARTIFACTDIR/$file" ] || { echo "$ARTIFACTDIR/$file is missing. Build the host image first." >&2; exit 1; }
+      done
+
+  - action: debootstrap
+    description: Debootstrap core distro
+    suite: trixie
+    components:
+      - main
+    mirror: {{ $mirror }}
+
+  - action: apt
+    description: Install installer packages
+    packages:
+      - bmap-tools
+      - linux-image-amd64
+
+  - action: run
+    description: Set the host name
+    chroot: true
+    command: |
+      echo "Setting host name to quarry-installer"
+      echo quarry-installer > /etc/hostname
+
+  - action: overlay
+    description: Apply system overlay files
+    source: overlays/installer
+
+  - action: run
+    description: Copy the host image into the installer
+    chroot: false
+    command: |
+      set -e
+      install -v -d "$ROOTDIR/usr/share/quarry"
+      cp -v "$ARTIFACTDIR/host.img.gz" "$ARTIFACTDIR/host.bmap" "$ROOTDIR/usr/share/quarry/"
+
+  # The partition type GUIDs and the sector values follow the host recipe. The
+  # ESP is smaller here, because the installer has one kernel.
+  - action: image-partition
+    description: Create a partitioned disk image
+    imagename: installer.img
+    imagesize: {{ $installer_size }}
+    partitiontype: gpt
+    partitions:
+      - name: ESP
+        parlabel: ESP
+        flags: [ boot, esp ]
+        parttype: c12a7328-f81f-11d2-ba4b-00a0c93ec93b # EFI System Partition
+        fs: vfat
+        start: 2048s
+        end: 1050623s # 512 MiB
+        fsck: true
+      - name: root
+        parttype: 4f68bce3-e8cd-4db1-96e7-fbcaf984b709 # Root partition, x86-64
+        fs: ext4
+        start: 1050624s
+        end: 100%
+        fsck: true
+    mountpoints:
+      - mountpoint: /boot/efi/
+        partition: ESP
+        options: [ umask=0077 ]
+      - mountpoint: /
+        partition: root
+
+  - action: filesystem-deploy
+    description: Deploy the created filesystem onto the disk image
+    setup-fstab: true
+    setup-kernel-cmdline: true
+{{- if $kernel_cmdline_extra }}
+    # Set with KERNEL_CMDLINE_EXTRA, for example a serial console for a test in
+    # a virtual machine.
+    append-kernel-cmdline: {{ $kernel_cmdline_extra }}
+{{- end }}
+
+  # The package installs the boot loader in the mounted ESP and makes the
+  # entry for the kernel that is already in the image.
+  - action: apt
+    description: Install systemd-boot bootloader
+    packages:
+      - systemd-boot
+
+  - action: run
+    description: Fix up the systemd-boot default timeout
+    chroot: false
+    command: |
+      echo "Enabling the timeout in loader.conf"
+      sed -i -e "s/#timeout/timeout/g" $ROOTDIR/boot/efi/loader/loader.conf
+
+  - action: run
+    description: Clean up the apt downloaded files
+    chroot: true
+    command: apt-get clean
+
+  - action: run
+    description: Create bmaptool map file for the deployed disk image
+    postprocess: true
+    command: bmaptool create --output "$ARTIFACTDIR/installer.bmap" "$ARTIFACTDIR/installer.img"

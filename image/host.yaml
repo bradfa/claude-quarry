@@ -292,3 +292,11 @@ actions:
     description: Create bmaptool map file for the deployed disk image
     postprocess: true
     command: bmaptool create --output "$ARTIFACTDIR/host.bmap" "$ARTIFACTDIR/host.img"
+
+  # The USB installer carries this file. bmaptool reads a .gz image with the
+  # .bmap file of the uncompressed image, so the installer needs no unpacking
+  # space. The step keeps host.img, because the virtual machine test uses it.
+  - action: run
+    description: Compress the disk image for the USB installer
+    postprocess: true
+    command: gzip --keep --force --verbose "$ARTIFACTDIR/host.img"

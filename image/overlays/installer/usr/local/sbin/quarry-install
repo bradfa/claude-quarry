@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Write the claude-quarry host image to a disk. This erases the whole disk.
+#
+# Usage: quarry-install /dev/DISK
+#
+# The script never runs at boot. It refuses a partition, a disk that has a
+# mounted file system (this includes the disk that the installer booted from),
+# and a disk that is smaller than the image. The first boot of the host adds
+# the swap and VM storage partitions in the rest of the disk. A disk with too
+# little free space boots without them, so check with lsblk after the first
+# boot.
+
+set -euo pipefail
+
+image_dir=/usr/share/quarry
+image=$image_dir/host.img.gz
+bmap=$image_dir/host.bmap
+
+die() {
+    echo "quarry-install: $*" >&2
+    exit 1
+}
+
+(($# == 1)) || die "usage: quarry-install /dev/DISK"
+((EUID == 0)) || die "run this script as root"
+[[ -r $image && -r $bmap ]] || die "missing $image or $bmap"
+
+disk=$(readlink -f -- "$1")
+[[ -b $disk ]] || die "$disk is not a block device"
+[[ $(lsblk -dno TYPE "$disk") == disk ]] ||
+    die "$disk is not a whole disk. Give the disk, not a partition."
+
+# lsblk lists the mounts of the partitions and of the devices below them. The
+# installer root is one of these mounts when the target is the USB stick.
+if lsblk -nro MOUNTPOINTS "$disk" | grep -q .; then
+    echo "Mounted file systems on $disk:" >&2
+    lsblk -o NAME,MOUNTPOINTS "$disk" >&2
+    die "refusing a disk that has mounted file systems"
+fi
+
+image_bytes=$(sed -n 's|.*<ImageSize> *\([0-9]*\) *</ImageSize>.*|\1|p' "$bmap")
+[[ $image_bytes =~ ^[0-9]+$ ]] || die "cannot read the image size from $bmap"
+disk_bytes=$(blockdev --getsize64 "$disk")
+((disk_bytes >= image_bytes)) ||
+    die "$disk has $disk_bytes bytes, and the image has $image_bytes bytes"
+
+echo "Target disk: $disk"
+lsblk -dno MODEL,SERIAL,SIZE "$disk" | sed 's/^/Model, serial, size: /'
+echo
+echo "Partitions on the disk now:"
+lsblk -o NAME,SIZE,FSTYPE,LABEL "$disk"
+echo
+
+# A disk without a by-id name (a virtual disk with no serial number) is
+# confirmed with the device path.
+mapfile -t names < <(
+    for link in /dev/disk/by-id/*; do
+        [[ $link == *-part* ]] && continue
+        [[ $(readlink -f -- "$link") == "$disk" ]] && echo "${link##*/}"
+    done | sort
+)
+if ((${#names[@]} > 0)); then
+    echo "Names of this disk in /dev/disk/by-id:"
+    printf '  %s\n' "${names[@]}"
+    prompt="Type one of these names to erase the whole disk"
+else
+    echo "This disk has no name in /dev/disk/by-id."
+    names=("$disk")
+    prompt="Type the device path $disk to erase the whole disk"
+fi
+read -r -p "$prompt: " reply
+match=
+for name in "${names[@]}"; do
+    [[ $reply == "$name" ]] && match=yes
+done
+[[ -n $match ]] || die "the name does not match. Nothing was written."
+
+echo "Removing the old signatures from $disk"
+wipefs --all --force "$disk"
+echo "Writing $image to $disk"
+bmaptool copy --bmap "$bmap" "$image" "$disk"
+sync
+udevadm settle
+echo
+echo "Done. Remove the USB stick, then reboot. The first boot adds the swap"
+echo "and VM storage partitions in the free space of the disk."
