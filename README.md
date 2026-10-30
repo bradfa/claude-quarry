@@ -76,7 +76,7 @@ meets the same requirements, but nobody has tested it.
 | USB for the guest | A PCIe USB xHCI card for the USB-UART adapters, the SD card mux, and the USB product. It must be in its own IOMMU group | Ordered, not installed yet |
 | Operating system | Debian 13 (trixie) | Debian 13 |
 | Claude Code | A Claude Code login. The plan assumes a Teams plan | |
-| Build machine | A machine with `debos` and `bmaptool` installed, to build the images. This can be your daily computer | |
+| Build machine | A machine with `debos`, `bmaptool`, and `zstd` installed, to build the images. This can be your daily computer | |
 | Image test | To test an image in a virtual machine: `qemu-system-x86`, the `ovmf` package, and access to `/dev/kvm` | |
 
 Check the IOMMU groups before you buy cards. Every device in a group must go to
@@ -128,7 +128,7 @@ image/build.sh
 ```
 
 The script builds the host image and then the USB installer. It writes
-`image/build/host.img`, `host.img.gz`, and `host.bmap` for the host image, and
+`image/build/host.img`, `host.img.zst`, and `host.bmap` for the host image, and
 `image/build/installer.img` and `installer.bmap` for the installer. To build
 only the host image, run `image/build.sh host`. The root account is locked, and
 password login is off, so the SSH key is the only way in.

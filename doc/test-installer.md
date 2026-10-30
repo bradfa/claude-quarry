@@ -24,7 +24,8 @@ These points are untested assumptions:
 
 ## Prerequisites
 
-The same as `doc/test-host-image.md`. The `image/build.conf` file must hold
+The same as `doc/test-host-image.md`, and the `zstd` program on the build
+machine. The `image/build.conf` file must hold
 `ADMIN_USER` and `ADMIN_SSH_KEY_FILE`.
 
 ## 1. Build the images
@@ -39,8 +40,8 @@ messages. The script builds the host image and then the installer.
 
 | # | Check | Expected result | Result |
 | --- | --- | --- | --- |
-| 1.1 | `image/build.sh` exit code | 0. The log shows the `cp -v` line for `host.img.gz` and `host.bmap` | Not run |
-| 1.2 | `ls -lh image/build/` | `host.img.gz`, `installer.img`, and `installer.bmap` exist, with `host.img` and `host.bmap`. `installer.img` is 8 GB (sparse) | Not run |
+| 1.1 | `image/build.sh` exit code | 0. The log shows the `cp -v` line for `host.img.zst` and `host.bmap` | Not run |
+| 1.2 | `ls -lh image/build/` | `host.img.zst`, `installer.img`, and `installer.bmap` exist, with `host.img` and `host.bmap`. `installer.img` is 8 GB (sparse) | Not run |
 
 If the installer build stops because the root file system is full, set
 `INSTALLER_SIZE` to a larger value in `image/build.conf`.
@@ -139,4 +140,4 @@ option. The target disk then has no name in `/dev/disk/by-id`.
    data. Say this in the runbook if the old disk held secrets.
 3. **The size of the installer.** `INSTALLER_SIZE` is 8 GB by default. The
    compressed host image must fit with the installer system. Check the real
-   size of `host.img.gz` in check 1.2.
+   size of `host.img.zst` in check 1.2.

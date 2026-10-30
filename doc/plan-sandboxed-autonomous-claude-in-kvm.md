@@ -118,7 +118,7 @@ The installer:
 
 Testing: nested KVM is on, on the owner's daily machine (`nested=Y`). Build the images outside Claude. Boot the installer in a VM with a larger empty disk. This tests the install, the repart growth, and runbook stages 1 to 4. It cannot test passthrough.
 
-Status on Oct 30, 2026: the host image builds with `image/build.sh` and passes steps 1 to 8 of `doc/test-host-image.md` in a QEMU virtual machine. The installer recipe (`image/installer.yaml`) exists, and `doc/test-installer.md` holds its test. It carries the host image as `host.img.gz` and writes it with `bmaptool`, which reads a gzip image with the `.bmap` file of the uncompressed image. The installer logs in as root on the console without a password, because it has no network service and needs the physical stick. The installer and the real host are not tested yet.
+Status on Oct 30, 2026: the host image builds with `image/build.sh` and passes steps 1 to 8 of `doc/test-host-image.md` in a QEMU virtual machine. The installer recipe (`image/installer.yaml`) exists, and `doc/test-installer.md` holds its test. It carries the host image as `host.img.zst` and writes it with `bmaptool`, which reads a zstd image with the `.bmap` file of the uncompressed image. The installer logs in as root on the console without a password, because it has no network service and needs the physical stick. The installer and the real host are not tested yet.
 
 A reset needs a person at the host with the USB stick. The running root cannot be overwritten.
 
@@ -365,8 +365,8 @@ Closed by measurement or by the documentation:
 | Which network tool does the host baseline use? | `systemd-networkd` (owner decision). |
 | Does systemd-repart create the swap and XFS partitions as designed? | Yes, on a 100 GB virtual disk, and a second run changes nothing (V). Root stays at its fixed size. It does not grow, by design. |
 | Does `pam_ssh_agent_auth` work for `sudo` on Debian 13? | Yes. `sudo` works with a forwarded agent and fails without one (V). |
-| Does `bmaptool` 3.9 read a compressed image with a `.bmap` file? | It reads `.gz` and other formats (`bmaptool copy --help`, S). It does not write compressed images. The host recipe makes the `.bmap` file first and then runs `gzip --keep`. The `.bmap` file stays valid, because it describes the uncompressed image. The installer copy of this has not run yet (A). |
-| Does debos include one recipe in another? | The installer does not need it. The installer recipe copies `host.img.gz` and `host.bmap` from the artifact directory (`$ARTIFACTDIR`) into its root file system. `image/build.sh` builds the two recipes in a fixed order. |
+| Does `bmaptool` 3.9 read a compressed image with a `.bmap` file? | It reads `.gz`, `.zst`, and other formats (`bmaptool copy --help`, S). It runs the `zstd` program for `.zst`, so the installer has the `zstd` package. It does not write compressed images. The host recipe makes the `.bmap` file first and then runs `zstd --keep`. The first version used `gzip`, and it needed about 2 minutes on the 34 GB image. The owner chose `zstd` for speed. The `.bmap` file stays valid, because it describes the uncompressed image. The installer copy of this has not run yet (A). |
+| Does debos include one recipe in another? | The installer does not need it. The installer recipe copies `host.img.zst` and `host.bmap` from the artifact directory (`$ARTIFACTDIR`) into its root file system. `image/build.sh` builds the two recipes in a fixed order. |
 
 ## Sources
 

@@ -2,7 +2,7 @@
 # system that boots by UEFI, and the host image on its root file system.
 #
 # Build the host image first (image/build.sh host). This recipe reads
-# host.img.gz and host.bmap from the artifact directory. Build with
+# host.img.zst and host.bmap from the artifact directory. Build with
 # image/build.sh, and write the result to a USB stick with bmaptool.
 # The installer system logs in as root on the console without a password,
 # because it has no network service and the user needs physical access to the
@@ -22,7 +22,7 @@ actions:
     description: Stop early if the host image is missing
     chroot: false
     command: |
-      for file in host.img.gz host.bmap; do
+      for file in host.img.zst host.bmap; do
         [ -r "$ARTIFACTDIR/$file" ] || { echo "$ARTIFACTDIR/$file is missing. Build the host image first." >&2; exit 1; }
       done
 
@@ -33,11 +33,13 @@ actions:
       - main
     mirror: {{ $mirror }}
 
+  # bmaptool runs the zstd program to read the .zst image.
   - action: apt
     description: Install installer packages
     packages:
       - bmap-tools
       - linux-image-amd64
+      - zstd
 
   - action: run
     description: Set the host name
@@ -56,7 +58,7 @@ actions:
     command: |
       set -e
       install -v -d "$ROOTDIR/usr/share/quarry"
-      cp -v "$ARTIFACTDIR/host.img.gz" "$ARTIFACTDIR/host.bmap" "$ROOTDIR/usr/share/quarry/"
+      cp -v "$ARTIFACTDIR/host.img.zst" "$ARTIFACTDIR/host.bmap" "$ROOTDIR/usr/share/quarry/"
 
   # The partition type GUIDs and the sector values follow the host recipe. The
   # ESP is smaller here, because the installer has one kernel.

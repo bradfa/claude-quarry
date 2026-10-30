@@ -13,7 +13,7 @@
 set -euo pipefail
 
 image_dir=/usr/share/quarry
-image=$image_dir/host.img.gz
+image=$image_dir/host.img.zst
 bmap=$image_dir/host.bmap
 
 die() {
