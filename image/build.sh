@@ -105,8 +105,13 @@ build_host() {
         "$script_dir/host.yaml"
 }
 
+# By default, debos keeps the root file system tree in the RAM of its build
+# machine (2 GB). The compressed host image does not fit there, and the kernel
+# kills the copy. --scratchsize puts the tree on disk. The tree always fits in
+# the installer image, so INSTALLER_SIZE is a safe size.
 build_installer() {
     debos --artifactdir="$build_dir" \
+        --scratchsize="$INSTALLER_SIZE" \
         -t "installer_size:$INSTALLER_SIZE" \
         -t "mirror:$MIRROR" \
         -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
