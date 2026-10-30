@@ -214,12 +214,16 @@ actions:
     append-kernel-cmdline: {{ $kernel_cmdline_extra }}
 {{- end }}
 
+  # With nofail, a missing or damaged vmdata partition does not stop the boot,
+  # so the host stays reachable on the network or the console. The runbook
+  # adds RequiresMountsFor=/var/lib/libvirt to the libvirt units, so they do
+  # not write VM disks to the root file system when the mount is missing.
   - action: run
     description: Mount VM storage by partition label
     chroot: true
     command: |
       echo "Adding the VM storage mount to /etc/fstab"
-      echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
+      echo 'PARTLABEL=vmdata /var/lib/libvirt xfs defaults,nofail,x-systemd.device-timeout=30s 0 2' >> /etc/fstab
       cat /etc/fstab
 
   # systemd-gpt-auto-generator also finds swap partitions, but it runs before

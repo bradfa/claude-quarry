@@ -17,6 +17,8 @@ different machine IDs and different SSH host keys.
 Open:
 
 - Step 8 (the `nopasswd` mode) has not run.
+- Step 9 (a disk with no free space) has not run. It tests the `nofail` option
+  on the `vmdata` mount.
 - Check 4.15 (`ifupdown` is gone) needs a build that has the purge step.
 - Nothing has run on the real host yet. The `en*` network match and the
   removable-media boot path need the real hardware (see Risks).
@@ -205,10 +207,34 @@ purge, so check 4.15 and check 4.2 can run on it too.
 | 8.1 | In a session without `-A`: `sudo -n true; echo $?` | `0`, and no prompt | Not run |
 | 8.2 | `ls /etc/security/sudo_authorized_keys` | The file does not exist | Not run |
 
-## 9. Test the real host (after the virtual machine passes)
+## 9. Boot a disk with no free space
 
-Do this only on the target host. The install erases the whole disk. The
-installer recipe does not exist yet, so this step comes later.
+A disk that has the size of the image leaves no room for the `swap` and
+`vmdata` partitions. The `vmdata` mount has `nofail`, so the host must boot and
+stay reachable. Use the image from step 8 or from step 1, and a new port.
+
+```
+cd ~/vm-test
+bmaptool copy ~/path/to/claude-quarry/image/build/host.img disk-d.img
+cp /usr/share/OVMF/OVMF_VARS_4M.fd vars-d.fd
+```
+
+Do not run `truncate` on `disk-d.img`. Start QEMU as in step 3 with
+`disk-d.img`, `vars-d.fd`, and `hostfwd=tcp::2225-:22`. Wait about a minute,
+because the mount waits for its device until the 30 second timeout.
+
+| # | Command | Expected result | Result |
+| --- | --- | --- | --- |
+| 9.1 | SSH login on port 2225 | The login works | Not run |
+| 9.2 | `lsblk -o NAME,SIZE,PARTLABEL,MOUNTPOINTS` | Only the ESP and root partitions | Not run |
+| 9.3 | `systemctl --failed` | `var-lib-libvirt.mount` failed. Record every other failed unit, for example `systemd-repart.service`, because the recipe does not handle a full disk on purpose | Not run |
+| 9.4 | `findmnt /var/lib/libvirt` | No output. The directory exists on the root file system | Not run |
+
+## 10. Test the real host (after the virtual machine passes)
+
+Do this only on the target host. The install erases the whole disk. Use the
+USB installer for this (see the installer test steps, which are not written
+yet).
 
 ## Risks and open points
 
@@ -233,7 +259,9 @@ point that rested on documentation before the first run.
 7. **The removable-media boot path.** The virtual machine started with empty
    firmware variables and still booted, so the fallback path in the ESP works
    in OVMF. Real firmware can differ. Open for the real host.
-8. **Missing `vmdata` partition.** The `vmdata` mount has no `nofail`. If the
-   partition is missing, the boot stops in emergency mode, and a locked root
-   account gives no shell. Open decision: add `nofail`, and make the libvirt
-   units require the mount in the runbook.
+8. **Missing `vmdata` partition.** The `vmdata` mount has `nofail`, so a
+   missing partition does not stop the boot. Without it, the boot would end in
+   emergency mode, and a locked root account gives no shell. The runbook must
+   make the libvirt units require the mount (`RequiresMountsFor=`), so libvirt
+   cannot write VM disks to the root file system. Step 9 tests the boot. Not
+   run yet.
