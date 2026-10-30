@@ -246,7 +246,9 @@ point that rested on documentation before the first run.
    entries. The entry lives in a directory that has the build-time machine ID.
    After the first boot, a kernel update uses the real machine ID, and the old
    directory stays in the ESP. A fixed entry token in `/etc/kernel/entry-token`
-   would avoid this. This is an open decision, and it has not been tested.
+   would avoid this. This is a known issue. The owner chose not to add the
+   token now, and nobody has tested it. The cost is an unused directory in the
+   ESP, which is 2 GiB.
 2. **Machine ID option.** Verified (checks 4.6 and 7.1).
 3. **Swap activation.** `systemd-gpt-auto-generator` runs before
    `systemd-repart`, so the first boot had no swap. An `fstab` line fixes it.
