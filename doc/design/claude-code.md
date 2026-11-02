@@ -15,7 +15,9 @@ directory that the host keeps up to date.
 | Permissions | Auto mode with written guidance. No hard allow, ask, or deny rules. | See Permissions below. |
 | Sandbox | The Claude Code sandbox is not used. | See below. |
 | Credentials | The guest holds no git or cloud credentials. The Claude login is the only token. | The guest can fetch from the internet without authentication. |
-| Updates | Claude Code updates itself on the `stable` channel. The owner trusts the official releases. | See Install |
+| Install | The signed Anthropic apt repository, with one package (`claude-code`). The binary is owned by root. | A prompt injection cannot change the binary. See Install. |
+| Channel | The build variable `CLAUDE_CODE_CHANNEL` picks `stable` (the default) or `latest`. | `stable` is about 1 week behind and skips releases with major regressions. |
+| Updates | The daily `unattended-upgrades` job updates Claude Code. The owner trusts the official releases. | See Install |
 | Sessions | The first sessions are interactive, in tmux. Headless runs (`claude -p`) may come later. | |
 
 ## Install
@@ -23,14 +25,52 @@ directory that the host keeps up to date.
 - Install Claude Code in the image for a non-root user. Claude Code refuses
   `--dangerously-skip-permissions` as root, and bitbake also refuses root
   [A18].
-- The installer is a curl-and-bash script [A19].
-- Do not pin the version. The native install updates itself in the background.
-  An update takes effect the next time Claude Code starts, so the owner
-  restarts the app between turns.
-- Set `"autoUpdatesChannel": "stable"` in the guest settings template. The
-  `stable` channel is about one week behind `latest`, and it skips releases with
-  major regressions. A newly launched model can need a newer version than
-  `stable` has. Then change the channel to `latest`.
+- Use the signed apt repository of Anthropic. Do not use the curl-and-bash
+  installer. The package installs the binary as root, so Claude cannot change
+  it. The native installer puts the binary in the home directory, and a prompt
+  injection could replace it there. The package install scripts run as root,
+  which needs more trust than the user install. The owner accepts this.
+- The image build downloads the signing key, and stops if the fingerprint is not
+  `31DD DE24 DDFA B679 F42D 7BD2 BAA9 29FF 1A7E CACE`. The key goes to
+  `/etc/apt/keyrings/claude-code.asc`, and the source entry uses `signed-by`
+  with that file.
+- The build variable `CLAUDE_CODE_CHANNEL` is `stable` or `latest`, and the
+  default is `stable`. The build stops on any other value. The variable sets
+  the repository URL, the suite name, and the origin line for
+  `unattended-upgrades`, so no value appears twice. The `stable` channel is
+  about one week behind `latest`, and it skips releases with major
+  regressions. A newly launched model can need a newer version than `stable`
+  has. Then build the image with `latest`. The guest is disposable, so a
+  rebuild is the way to change the channel.
+- Pin the repository to one package. The pin file
+  `/etc/apt/preferences.d/claude-code` has a negative priority for every
+  package of the repository, and a normal priority for `claude-code`. Apt
+  gives a record with a package name priority over a `Package: *` record, and
+  a negative priority prevents the install. Without the pin, the repository
+  could replace a package of Debian, such as `libc6` or `openssh-server`:
+
+  ```
+  Package: claude-code
+  Pin: release o=Anthropic
+  Pin-Priority: 500
+
+  Package: *
+  Pin: release o=Anthropic
+  Pin-Priority: -1
+  ```
+
+- Do not pin a version number. A version pin stops the updates.
+- The default origins of `unattended-upgrades` do not include this repository.
+  The image adds `origin=Anthropic,codename=<channel>,label=Anthropic`. The
+  daily job then updates Claude Code, and the pin limits it to that one
+  package. An update replaces the binary. It takes effect the next time Claude
+  Code starts, so the owner restarts the app between turns. Claude Code does not
+  update itself with this install.
+- Test the pin in the guest: `apt-cache policy claude-code` shows a candidate
+  from the Anthropic repository, and `apt-cache policy libc6` shows no
+  candidate from it.
+- Where the package puts its files, and whether an update harms a running
+  session, are not verified [A28] [A29].
 - Do not set `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. It turns off
   auto-updates and the fetch of feature flags. The documentation lists separate
   switches for telemetry and error reporting. Find out which switch does what,
@@ -146,9 +186,13 @@ git push origin quarry/branch:branch
 - Auto mode: <https://code.claude.com/docs/en/permission-modes>
 - The sandbox network proxy and nested namespaces:
   <https://code.claude.com/docs/en/sandboxing>
-- Install, auto-updates, and release channels:
+- Install, the apt repository, key fingerprint, and release channels:
   <https://code.claude.com/docs/en/setup>
-- Commands and flags (`--plugin-dir`, `claude install`):
+- The repository files (`Release` and `Packages`, with `Origin: Anthropic`,
+  `Label: Anthropic`, and the one package `claude-code`):
+  <https://downloads.claude.ai/claude-code/apt/stable/dists/stable/Release>
+- Pin priorities and the order of records: `man apt_preferences`.
+- Commands and flags (`--plugin-dir`):
   <https://code.claude.com/docs/en/cli-reference>
 - Settings files, precedence, and folder trust:
   <https://code.claude.com/docs/en/settings>

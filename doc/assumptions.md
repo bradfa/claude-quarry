@@ -33,7 +33,6 @@ The git history keeps the deleted rows.
 | A16 | Claude Code has no built-in run-time limit. | run-control | Read the documentation of each pinned release. Run a long session. |
 | A17 | The QEMU guest agent or `chrony` corrects the guest clock after a long suspend. | run-control | Suspend the guest, wait, resume it, and read the clock. |
 | A18 | Claude Code refuses `--dangerously-skip-permissions` as root, and bitbake refuses to run as root. | claude-code | Try both as root in the guest. |
-| A19 | The Claude Code installer is a curl-and-bash script. | claude-code | Read the installer at rollout stage 4. |
 | A20 | Haiku 5.5 works in auto mode on a Teams account. | claude-code | Start auto mode with Haiku on the account. |
 | A21 | Hardware steps that need root fail under the Claude Code sandbox. | claude-code | Run one such step (for example `modprobe`) in a sandboxed session. |
 | A22 | A Claude Code session reads a changed `CLAUDE.md` after a restart or a resume. | claude-code | Change the file, resume the session, and ask Claude about it. |
@@ -41,6 +40,8 @@ The git history keeps the deleted rows.
 | A24 | A name clash between SD mux disks and the virtio disks of the guest is unlikely. | hil-services | Run `lsblk` in the guest with the mux attached. |
 | A25 | The guest is the natural exporter host for labgrid, because it owns the USB controller. | hil-services | Decide when labgrid work starts. |
 | A26 | The `en*` network match does not match a NIC that is bound to `vfio-pci`. | host-baseline | On the real host, bind a NIC to `vfio-pci` and read `networkctl`. |
+| A28 | The `claude-code` package installs the binary as root in `/usr`, and its install scripts change nothing outside it. | claude-code | Install it in a test guest. Run `dpkg -L claude-code` and read the scripts of the `.deb`. |
+| A29 | An update of the `claude-code` package does not harm a running Claude Code session. | claude-code | Update the package during a session. Check that the session continues. |
 
 ## Open questions
 
