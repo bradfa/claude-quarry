@@ -86,7 +86,8 @@ This project is in an early stage. Nothing has run on a real host yet.
 | Design documents | Written. Each unverified claim is in `doc/assumptions.md` |
 | Host baseline image | Builds. It passes the virtual machine tests in `test/` |
 | USB installer | Builds. It writes the host image in the virtual machine tests in `test/` |
-| Discovery script, runbook, guest image | Not written |
+| Discovery script | Written. `host/discover.sh` only reads |
+| Runbook, guest image | Not written |
 | Passthrough, firewall, time limit, Claude Code setup | Design only. Nothing is tested |
 
 The runbook is written one step at a time. A person runs each step on a real
@@ -154,6 +155,20 @@ network, the access control, and the first-boot identity. They also boot the
 installer, write the host image to an empty virtual disk, and boot that disk.
 `test/README.md` has the exact steps. The checks that only a real host can answer
 are in `test/manual/real-host.md`.
+
+### Read the facts of a host
+
+`host/discover.sh` reads the IOMMU groups, the reset methods of the PCI devices,
+the USB tree, the network, the disks, the boot loader, the firewall, and the
+installed packages of a host. It changes nothing. Run it as a user that can use
+`sudo`:
+
+```
+host/discover.sh
+```
+
+The output goes to `host/discovery/`. Run the script again after a hardware
+change, and compare the two files.
 
 ## Conventions
 

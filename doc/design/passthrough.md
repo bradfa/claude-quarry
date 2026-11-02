@@ -123,4 +123,5 @@ The new card should appear there, in its own group [A04, Q2].
   <https://lkml.iu.edu/2209.2/05142.html>
 - The RMRR refusal message for a network card:
   <https://forum.proxmox.com/goto/post?id=612846>
-- The host measurements in `host-discovery.txt` and `host-discovery-2.txt`.
+- The host measurements in `host/discovery/hp-elitedesk-1.txt` and
+  `host/discovery/hp-elitedesk-2.txt`.

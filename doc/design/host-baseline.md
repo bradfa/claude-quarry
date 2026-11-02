@@ -234,7 +234,8 @@ checks the chain, and it shows that the firmware refuses a kernel and a
 - The Linux source file `arch/x86/kernel/cpu/feat_ctl.c` (the `vmx` flag):
   <https://raw.githubusercontent.com/torvalds/linux/master/arch/x86/kernel/cpu/feat_ctl.c>
 - Debian 13 KVM host checks: <https://computingforgeeks.com/?p=21285>
-- The host measurements in `host-discovery.txt` and `host-discovery-2.txt`.
+- The host measurements in `host/discovery/hp-elitedesk-1.txt` and
+  `host/discovery/hp-elitedesk-2.txt`.
 - The Debian wiki page about Secure Boot (the chain, signed kernels, lockdown,
   and `systemd-boot` with the `shim`): <https://wiki.debian.org/SecureBoot>
 - The maintainer script of the `systemd-boot` package (the files that it puts
