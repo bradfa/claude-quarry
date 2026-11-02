@@ -63,16 +63,19 @@ held secrets.
   uses `--scratchsize` to keep the tree on disk. The tree always fits in the
   installer image, so `INSTALLER_SIZE` is a safe size.
 - The build machine needs `zstd`.
+- The installer boots in QEMU, and `bmaptool` reads the `.zst` image. The test
+  suite checks this.
 
 ## Not verified
 
-- The installer boots in QEMU, and `bmaptool` reads the `.zst` image [A27].
 - The real firmware boots the installer through the removable-media path in the
   ESP [Q6].
 
 ## Tests
 
-`doc/test-installer.md` tests the installer in QEMU.
+`test/test_installer.py` tests the installer in QEMU. It writes the host image
+to a virtual disk and boots that disk. `test/README.md` explains how to run it.
+The checks on the real host are in `test/manual/real-host.md`.
 
 ## Sources
 

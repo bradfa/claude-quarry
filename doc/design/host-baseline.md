@@ -151,7 +151,8 @@ setting.
 
 ## Tests
 
-`doc/test-host-image.md` tests the image in QEMU.
+`test/test_host_image.py` tests the image in QEMU. `test/README.md` explains how
+to run it. The checks on the real host are in `test/manual/real-host.md`.
 
 ## Sources
 

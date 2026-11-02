@@ -84,8 +84,8 @@ This project is in an early stage. Nothing has run on a real host yet.
 | Part | State |
 | --- | --- |
 | Design documents | Written. Each unverified claim is in `doc/assumptions.md` |
-| Host baseline image | Builds. It passes the virtual machine test (`doc/test-host-image.md`, steps 1 to 8) |
-| USB installer | The recipe builds. The test in `doc/test-installer.md` is in progress |
+| Host baseline image | Builds. It passes the virtual machine tests in `test/` |
+| USB installer | Builds. It writes the host image in the virtual machine tests in `test/` |
 | Discovery script, runbook, guest image | Not written |
 | Passthrough, firewall, time limit, Claude Code setup | Design only. Nothing is tested |
 
@@ -148,10 +148,11 @@ password login is off, so the SSH key is the only way in.
 
 ### Test the images
 
-- `doc/test-host-image.md` boots the host image in QEMU and checks the disk
-  layout, the network, the access control, and the first-boot identity.
-- `doc/test-installer.md` boots the installer in QEMU, writes the host image to an
-  empty virtual disk, and boots that disk.
+The tests in `test/` boot the host image in QEMU and check the disk layout, the
+network, the access control, and the first-boot identity. They also boot the
+installer, write the host image to an empty virtual disk, and boot that disk.
+`test/README.md` has the exact steps. The checks that only a real host can answer
+are in `test/manual/real-host.md`.
 
 ## Conventions
 

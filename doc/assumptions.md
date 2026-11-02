@@ -41,7 +41,6 @@ The git history keeps the deleted rows.
 | A24 | A name clash between SD mux disks and the virtio disks of the guest is unlikely. | hil-services | Run `lsblk` in the guest with the mux attached. |
 | A25 | The guest is the natural exporter host for labgrid, because it owns the USB controller. | hil-services | Decide when labgrid work starts. |
 | A26 | The `en*` network match does not match a NIC that is bound to `vfio-pci`. | host-baseline | On the real host, bind a NIC to `vfio-pci` and read `networkctl`. |
-| A27 | The USB installer boots in QEMU, and `bmaptool` reads the `.zst` image. | installer | Follow `doc/test-installer.md` until the suite replaces it. |
 
 ## Open questions
 
