@@ -23,6 +23,7 @@ class Settings:
     sudo_mode: str
     host_name: str
     host_image: Path
+    installer_image: Path
 
 
 def read_conf(path: Path) -> dict[str, str]:
@@ -62,6 +63,7 @@ def load() -> Settings:
         raise ValueError("SUDO_MODE must be agent or nopasswd")
 
     host_image = Path(os.environ.get("QUARRY_TEST_HOST_IMAGE", BUILD_DIR / "host.img"))
+    installer_image = Path(os.environ.get("QUARRY_TEST_INSTALLER_IMAGE", BUILD_DIR / "installer.img"))
 
     return Settings(
         admin_user=values["ADMIN_USER"],
@@ -69,4 +71,5 @@ def load() -> Settings:
         sudo_mode=sudo_mode,
         host_name=values.get("HOST_NAME", "quarry-host"),
         host_image=host_image,
+        installer_image=installer_image,
     )

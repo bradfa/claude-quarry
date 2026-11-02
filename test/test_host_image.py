@@ -14,9 +14,8 @@ import time
 
 import pytest
 
-EFI_SYSTEM = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
-LINUX_ROOT_X86_64 = "4f68bce3-e8cd-4db1-96e7-fbcaf984b709"
-GIB = 2**30
+from helpers import (EFI_SYSTEM, LINUX_ROOT_X86_64, assert_first_boot_layout, failed_units,
+                     partition, partitions, swap_is_active)
 
 
 @pytest.fixture
@@ -48,28 +47,6 @@ def vm_full(make_vm, host_image):
     """A disk with the size of the image. No room for swap and vmdata."""
     with make_vm("host-full", host_image).running() as machine:
         yield machine
-
-
-def partitions(machine):
-    out = machine.check("lsblk -Jb -o NAME,SIZE,FSTYPE,PARTLABEL,PARTTYPE,START,MOUNTPOINTS /dev/vda").stdout
-    return json.loads(out)["blockdevices"][0].get("children", [])
-
-
-def partition(machine, label):
-    found = [p for p in partitions(machine) if p["partlabel"] == label]
-    assert len(found) == 1, f"expected one partition with label {label}, found {found}"
-    return found[0]
-
-
-def failed_units(machine):
-    out = machine.check("systemctl --failed --no-legend --plain").stdout
-    return [line.split()[0] for line in out.splitlines() if line.strip()]
-
-
-def swap_is_active(machine):
-    device = "/dev/" + partition(machine, "swap")["name"]
-    swaps = machine.check("cat /proc/swaps").stdout.splitlines()[1:]
-    return any(line.split()[0] == device for line in swaps)
 
 
 # Step 1: the image files
@@ -107,17 +84,7 @@ def test_3_03_no_failed_units(vm_a):
 # Step 4: the system
 
 def test_4_01_partition_layout(vm_a):
-    esp, root, swap, vmdata = partitions(vm_a)
-    assert esp["parttype"].lower() == EFI_SYSTEM
-    assert 2 * GIB <= esp["size"] < 2.2 * GIB
-    assert root["parttype"].lower() == LINUX_ROOT_X86_64
-    assert 25 * GIB < root["size"] < 32 * GIB
-    assert (swap["partlabel"], vmdata["partlabel"]) == ("swap", "vmdata")
-    assert swap["size"] == 4 * GIB
-    assert vmdata["fstype"] == "xfs"
-    assert vmdata["size"] > 55 * GIB
-    # systemd-repart made these two on the first boot.
-    assert swap["start"] % 8 == 0 and vmdata["start"] % 8 == 0
+    assert_first_boot_layout(partitions(vm_a))
 
 
 def test_4_02_swap_active_on_first_boot(vm_a):

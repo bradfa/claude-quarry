@@ -27,6 +27,19 @@ def free_port():
         return sock.getsockname()[1]
 
 
+def make_overlay(base_image, disk, size=None):
+    """Make a qcow2 disk that reads from a raw image. Writes go to the new file."""
+    command = ["qemu-img", "create", "-q", "-f", "qcow2", "-F", "raw",
+               "-b", str(base_image.resolve()), str(disk)]
+    if size:
+        command.append(size)
+    subprocess.run(command, check=True)
+
+
+def make_blank_disk(disk, size):
+    subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2", str(disk), size], check=True)
+
+
 def check_tools():
     """Return the name of the first missing prerequisite, or None."""
     for tool in ("qemu-system-x86_64", "qemu-img", "ssh", "ssh-agent", "ssh-add"):
@@ -40,17 +53,18 @@ def check_tools():
 
 class Vm:
     """One virtual machine. The disk is a qcow2 overlay of a read-only image,
-    so the image is never changed and each machine starts fast."""
+    so the image is never changed and each machine starts fast. Give no base
+    image and a disk to boot an existing qcow2 disk as it is."""
 
     def __init__(self, name, base_image, settings, work_dir, log_dir, agent_socket,
-                 resize=None, memory=2048):
+                 resize=None, memory=2048, disk=None):
         self.name = name
         self.settings = settings
         self.agent_socket = agent_socket
         self.memory = memory
         self.port = None
         self.proc = None
-        self.disk = work_dir / f"{name}.qcow2"
+        self.disk = disk or work_dir / f"{name}.qcow2"
         self.vars = work_dir / f"{name}-vars.fd"
         self.serial_log = log_dir / f"{name}.serial.log"
         self.qemu_log = log_dir / f"{name}.qemu.log"
@@ -59,11 +73,8 @@ class Vm:
         self.extra_args = []
 
     def start(self):
-        create = ["qemu-img", "create", "-q", "-f", "qcow2", "-F", "raw",
-                  "-b", str(self.base_image.resolve()), str(self.disk)]
-        if self.resize:
-            create.append(self.resize)
-        subprocess.run(create, check=True)
+        if self.base_image is not None:
+            make_overlay(self.base_image, self.disk, self.resize)
         shutil.copyfile(OVMF_VARS, self.vars)
 
         self.port = free_port()

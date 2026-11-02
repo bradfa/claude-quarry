@@ -13,7 +13,7 @@ host image and run all tests. They do not change your own `image/build.conf`.
 
    ```
    apt install debos bmap-tools zstd qemu-system-x86 qemu-utils ovmf \
-       openssh-client util-linux python3-pytest python3-venv
+       openssh-client util-linux python3-pytest python3-pexpect python3-venv
    ```
 
 2. Make a test key and a test configuration. Run this in the top directory of
@@ -30,14 +30,16 @@ host image and run all tests. They do not change your own `image/build.conf`.
    EOF
    ```
 
-3. Build the host image. This takes some minutes and needs Internet access:
+3. Build the host image and the USB installer. This takes some minutes and
+   needs Internet access. The installer carries the host image, so build both
+   again after every change of the recipes:
 
    ```
-   BUILD_CONF=image/build/test.conf image/build.sh host
+   BUILD_CONF=image/build/test.conf image/build.sh
    ```
 
-4. Run the tests. The suite boots three machines, and one test waits up to 5
-   minutes for the time sync:
+4. Run the tests. The suite boots about seven machines, and one test waits up
+   to 5 minutes for the time sync:
 
    ```
    python3 -m venv --system-site-packages test/.venv
@@ -96,7 +98,9 @@ environment first, then from the file that `BUILD_CONF` names (the default is
 | --- | --- |
 | `BUILD_CONF` | The configuration file, as for `image/build.sh` |
 | `QUARRY_TEST_HOST_IMAGE` | The host image to test. The default is `image/build/host.img` |
+| `QUARRY_TEST_INSTALLER_IMAGE` | The installer to test. The default is `image/build/installer.img` |
 | `QUARRY_TEST_BOOT_TIMEOUT` | Seconds to wait for each boot. The default is 240 with KVM |
+| `QUARRY_TEST_INSTALL_TIMEOUT` | Seconds to wait for the installer to write the host image. The default is 1200 with KVM |
 | `QUARRY_TEST_KEEP` | Set to `1` to keep the disks of the test machines |
 
 ## Results and logs
@@ -112,8 +116,11 @@ environment first, then from the file that `BUILD_CONF` names (the default is
 | --- | --- |
 | `settings.py` | Reads the settings |
 | `vm.py` | Starts QEMU with OVMF on a free port, and runs commands over SSH |
+| `console.py` | Starts QEMU with `-nographic` and types at the serial console with `pexpect`, as a person does. The installer has no SSH |
+| `helpers.py` | Checks that both test files use |
 | `conftest.py` | The fixtures |
 | `test_host_image.py` | The host image tests. A name such as `test_4_03` is check 4.3 of the old manual page |
+| `test_installer.py` | The installer tests, in the same style. The tests write the host image to a virtual disk and boot that disk |
 
 Each test machine boots from a qcow2 overlay of the image, so the image file
 does not change.

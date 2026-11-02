@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import console
 import settings as quarry_settings
 import vm as quarry_vm
 
@@ -67,6 +68,20 @@ def make_vm(settings, agent_socket, work_dir):
         return quarry_vm.Vm(name, image, settings, work_dir, quarry_settings.LOG_DIR,
                             agent_socket, **kwargs)
     return make
+
+
+@pytest.fixture(scope="session")
+def make_console(work_dir):
+    def make(name: str, disks: list[console.Disk], **kwargs) -> console.ConsoleVm:
+        return console.ConsoleVm(name, work_dir, quarry_settings.LOG_DIR, disks, **kwargs)
+    return make
+
+
+@pytest.fixture(scope="session")
+def installer_image(settings) -> Path:
+    if not settings.installer_image.is_file():
+        pytest.skip(f"{settings.installer_image} does not exist. Build it with image/build.sh")
+    return settings.installer_image
 
 
 @pytest.fixture(scope="session")
