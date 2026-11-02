@@ -42,6 +42,8 @@ The git history keeps the deleted rows.
 | A26 | The `en*` network match does not match a NIC that is bound to `vfio-pci`. | host-baseline | On the real host, bind a NIC to `vfio-pci` and read `networkctl`. |
 | A28 | The `claude-code` package installs the binary as root in `/usr`, and its install scripts change nothing outside it. | claude-code | Install it in a test guest. Run `dpkg -L claude-code` and read the scripts of the `.deb`. |
 | A29 | An update of the `claude-code` package does not harm a running Claude Code session. | claude-code | Update the package during a session. Check that the session continues. |
+| A30 | The socket of an agent that `sshd` forwards to the admin account cannot be used by the Claude account. | guest-access | In an admin session with `ssh -A`, run `ssh-add -l` as the Claude account with that socket path. It must fail. |
+| A31 | A checked tarball extraction by a root-owned service gives a root file system for NFS without a way out of the target directory. | guest-access | Design the checks, then test a tarball with `..` paths, absolute paths, and links. |
 
 ## Open questions
 

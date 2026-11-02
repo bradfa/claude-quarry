@@ -118,6 +118,7 @@ implementation differs, we change the document.
 | `doc/design/network.md` | Network layout, host firewall, Tailscale |
 | `doc/design/run-control.md` | Suspend timer, time limit, quota, auto mode stalls |
 | `doc/design/claude-code.md` | Claude Code install, login, permissions, provisioning |
+| `doc/design/guest-access.md` | Guest accounts, SSH login, and root work without `sudo` |
 | `doc/design/hil-services.md` | USB devices, network boot, SD mux, labgrid, safety rules |
 | `doc/assumptions.md` | Claims and questions that nobody has verified yet |
 

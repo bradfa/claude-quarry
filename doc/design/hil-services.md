@@ -3,8 +3,9 @@
 The guest owns a whole USB controller and a whole Ethernet card (see
 `passthrough.md`). It runs the normal Linux services for hardware work, with no
 bridges or workarounds. All points on this page are design intent and are not
-tested. The guest user has `sudo`, so root steps work. The Claude Code sandbox is
-not used.
+tested. Claude has no root and no `sudo` in the guest. `guest-access.md` says
+how the steps on this page work without root. The Claude Code sandbox is not
+used.
 
 ## USB devices
 
@@ -23,9 +24,10 @@ The boot flow uses DHCP or BOOTP, which the owner confirmed.
   only. Use `dhcp-host` entries to give the board a fixed lease, so that the
   boot loader and the kernel get the same address.
 - The kernel NFS server (`nfs-kernel-server`) in the guest serves the root
-  file system. Export it only to the board subnet. The guest has real root, so
-  the root file system can be extracted with the correct ownership. No
-  user-space NFS server is needed.
+  file system. Export it only to the board subnet. A root-owned service
+  extracts the root file system with the correct ownership, and a root-owned
+  generator writes the `dnsmasq` and `exports` configuration (see
+  `guest-access.md`). No user-space NFS server is needed.
 - Not defined yet: the kernel command line, the NFS version, and the format of
   the boot configuration file (for example a pxelinux-style file on the TFTP
   server).

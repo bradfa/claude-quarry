@@ -16,8 +16,9 @@ work and the login. All points on this page are design intent. None is tested
   to the guest:
   - Use the suite `trixie` with the security and updates repositories.
   - Remove `avahi-daemon` and `ntp`. Add `chrony` and `qemu-guest-agent`.
-  - Replace the root password with a non-root user that has an SSH key. Claude
-    Code and bitbake refuse root.
+  - Replace the root password with two non-root users that have an SSH key: the
+    Claude account and the admin account (see `guest-access.md`). Claude Code
+    and bitbake refuse root.
   - Keep the image small, because the data disk is separate.
   - Treat the finished file as immutable. A rebuild makes a new file with a new
     name.
