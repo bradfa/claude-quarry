@@ -12,6 +12,10 @@ from pathlib import Path
 OVMF_DIR = Path("/usr/share/OVMF")
 OVMF_CODE = OVMF_DIR / "OVMF_CODE_4M.fd"
 OVMF_VARS = OVMF_DIR / "OVMF_VARS_4M.fd"
+# The Secure Boot firmware enforces signatures. Its variable store has the keys
+# that a PC ships with: the Microsoft CA that signs the Debian shim.
+OVMF_CODE_SECBOOT = OVMF_DIR / "OVMF_CODE_4M.secboot.fd"
+OVMF_VARS_SECBOOT = OVMF_DIR / "OVMF_VARS_4M.ms.fd"
 
 # Without /dev/kvm, QEMU emulates the CPU. That works but is slow, so the
 # boot timeout is much longer. QUARRY_TEST_BOOT_TIMEOUT overrides it.
@@ -40,12 +44,31 @@ def make_blank_disk(disk, size):
     subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2", str(disk), size], check=True)
 
 
+def firmware_args(vars_file, secure_boot=True):
+    """Copy the variable store to vars_file and return the QEMU options for the
+    machine and the firmware. Only a test that must prove that a disk is fine
+    without Secure Boot turns it off."""
+    if secure_boot:
+        code, template = OVMF_CODE_SECBOOT, OVMF_VARS_SECBOOT
+        # The keys sit in flash that only the firmware can write (SMM). QEMU
+        # needs S3 off for this.
+        machine = ["-machine", "q35,smm=on", "-global", "driver=cfi.pflash01,property=secure,value=on",
+                   "-global", "ICH9-LPC.disable_s3=1"]
+    else:
+        code, template = OVMF_CODE, OVMF_VARS
+        machine = ["-machine", "q35"]
+    shutil.copyfile(template, vars_file)
+    return [*machine,
+            "-drive", f"if=pflash,format=raw,readonly=on,file={code}",
+            "-drive", f"if=pflash,format=raw,file={vars_file}"]
+
+
 def check_tools():
     """Return the name of the first missing prerequisite, or None."""
     for tool in ("qemu-system-x86_64", "qemu-img", "ssh", "ssh-agent", "ssh-add"):
         if shutil.which(tool) is None:
             return tool
-    for firmware in (OVMF_CODE, OVMF_VARS):
+    for firmware in (OVMF_CODE, OVMF_VARS, OVMF_CODE_SECBOOT, OVMF_VARS_SECBOOT):
         if not firmware.is_file():
             return str(firmware)
     return None
@@ -57,8 +80,9 @@ class Vm:
     image and a disk to boot an existing qcow2 disk as it is."""
 
     def __init__(self, name, base_image, settings, work_dir, log_dir, agent_socket,
-                 resize=None, memory=2048, disk=None):
+                 resize=None, memory=2048, disk=None, secure_boot=True):
         self.name = name
+        self.secure_boot = secure_boot
         self.settings = settings
         self.agent_socket = agent_socket
         self.memory = memory
@@ -75,14 +99,12 @@ class Vm:
     def start(self):
         if self.base_image is not None:
             make_overlay(self.base_image, self.disk, self.resize)
-        shutil.copyfile(OVMF_VARS, self.vars)
 
         self.port = free_port()
         accel = ["-enable-kvm", "-cpu", "host"] if HAS_KVM else ["-accel", "tcg", "-cpu", "max"]
-        argv = ["qemu-system-x86_64", "-machine", "q35", "-smp", "2", "-m", str(self.memory), *accel,
+        argv = ["qemu-system-x86_64", *firmware_args(self.vars, self.secure_boot),
+                "-smp", "2", "-m", str(self.memory), *accel,
                 "-display", "none", "-monitor", "none", "-serial", f"file:{self.serial_log}",
-                "-drive", f"if=pflash,format=raw,readonly=on,file={OVMF_CODE}",
-                "-drive", f"if=pflash,format=raw,file={self.vars}",
                 "-drive", f"if=virtio,format=qcow2,file={self.disk}",
                 "-nic", f"user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{self.port}-:22",
                 *self.extra_args]

@@ -7,7 +7,6 @@ installer has no network and no SSH, so the console is the only way to use it.
 import contextlib
 import os
 import re
-import shutil
 import uuid
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
@@ -42,8 +41,10 @@ class Result:
 class ConsoleVm:
     """A virtual machine with virtio disks. The first disk is the boot disk."""
 
-    def __init__(self, name: str, work_dir: Path, log_dir: Path, disks: Sequence[Disk], memory: int = 2048):
+    def __init__(self, name: str, work_dir: Path, log_dir: Path, disks: Sequence[Disk], memory: int = 2048,
+                 secure_boot: bool = True):
         self.name = name
+        self.secure_boot = secure_boot
         self.disks = disks
         self.memory = memory
         self.vars = work_dir / f"{name}-vars.fd"
@@ -52,11 +53,9 @@ class ConsoleVm:
         self.log_file = None
 
     def start(self) -> None:
-        shutil.copyfile(quarry_vm.OVMF_VARS, self.vars)
         accel = ["-enable-kvm", "-cpu", "host"] if quarry_vm.HAS_KVM else ["-accel", "tcg", "-cpu", "max"]
-        argv = ["-machine", "q35", "-smp", "2", "-m", str(self.memory), *accel, "-nographic",
-                "-drive", f"if=pflash,format=raw,readonly=on,file={quarry_vm.OVMF_CODE}",
-                "-drive", f"if=pflash,format=raw,file={self.vars}"]
+        argv = [*quarry_vm.firmware_args(self.vars, self.secure_boot),
+                "-smp", "2", "-m", str(self.memory), *accel, "-nographic"]
         for index, disk in enumerate(self.disks):
             device = f"virtio-blk-pci,drive=disk{index}"
             if disk.serial:
