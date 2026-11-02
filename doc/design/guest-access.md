@@ -146,9 +146,6 @@ not decided yet.
 
 ## Not designed yet
 
-- How the Claude login token is protected. The token is in
-  `~/.claude/.credentials.json`, and Claude and everything that it starts can
-  read it. See the Risks table in `claude-code.md`.
 - The checks for a root file system tarball [A31].
 - How often the base image is rebuilt.
 
@@ -156,6 +153,8 @@ not decided yet.
 
 These are checks for the guest image. The image does not exist yet.
 
+- The Claude account cannot write `/etc/claude-code` or `/opt/claude-marketplace`
+  (see `claude-code.md`).
 - The Claude account is not in `sudo` or `disk`, and `sudo -l` shows nothing.
 - `sshd -T -C user=claude` shows `allowagentforwarding no`, and the output for
   the admin account shows `yes`.
@@ -174,6 +173,7 @@ These are checks for the guest image. The image does not exist yet.
 | Claude gets root while an admin session is open, and uses the agent | Short admin sessions. The touch policy of the Yubikey. | Accepted |
 | A root service reads a file that Claude writes, and runs it | Claude writes data only. A root-owned generator checks it and writes the configuration. | Design intent |
 | A group gives too much access (for example `disk`) | One group per device type, matched to the device by `udev` rules. | Design intent |
+| A prompt injection reads the Claude login token, which the Claude account must read to use the subscription | Revoke the token if anything looks wrong. See `claude-code.md`. | Accepted by the owner |
 
 ## Sources
 

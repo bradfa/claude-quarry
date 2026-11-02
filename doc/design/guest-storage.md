@@ -26,10 +26,12 @@ work and the login. All points on this page are design intent. None is tested
   system writes of the guest go to the overlay. To recover, delete the overlay
   and make a new one. The base image must never change while an overlay depends
   on it.
-- **Data disk.** A second virtual disk, formatted ext4 and mounted in the guest.
-  It holds the workspace, the Yocto download directory, the sstate cache, the
-  Claude configuration directory (`~/.claude`), and the SSH host keys. The
-  Claude login and the guest identity survive a reset. `first-boot.service` runs
+- **Data disk.** A second virtual disk, formatted ext4 and mounted at `/data` in
+  the guest. It holds the workspace, the Yocto download directory, the sstate
+  cache, the Claude configuration directory (`/data/claude-config`, see
+  `claude-code.md`), and the SSH host keys. The home directory of the Claude
+  account stays on the overlay. The Claude login and the guest identity survive
+  a reset. `first-boot.service` runs
   again after every overlay reset, so the SSH host keys must live on the data
   disk. Otherwise the host sees a new key after each reset.
 - **No sharing at first.** Guests do not share downloads or sstate. Each guest

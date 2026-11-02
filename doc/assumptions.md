@@ -47,7 +47,7 @@ The git history keeps the deleted rows.
 | A32 | Kernel lockdown (on with Secure Boot) does not block libvirt and the VFIO passthrough of the PCIe cards. | host-baseline | With Secure Boot on, bind a card to `vfio-pci`, start a guest with it (rollout stage 5), and read `dmesg` for lockdown messages. |
 | A33 | On the reference firmware with Secure Boot on, the shim boots from the removable-media path. The shim starts `systemd-boot`, and the firmware then holds a boot entry for the shim. The virtual machine tests show this with the OVMF firmware. | host-baseline | Boot the installer and the host disk on the real host with Secure Boot on (`test/manual/real-host.md`, section 4). |
 | A34 | The Microsoft db update for the UEFI CA 2023 works on the reference firmware, and `fwupd` can apply it. | host-baseline | Run `fwupdmgr get-devices` and `fwupdmgr get-updates` on the host. Apply the update, and run `mokutil --db`. |
-
+| A35 | The managed settings file in the guest applies, because the admin console of the Teams organization delivers no managed settings. By default Claude Code uses only the highest-ranked managed source, and it ignores the file without a warning if the console delivers any policy key. On 2026-11-02 the `/status` of the owner on the daily machine named no managed source. | claude-code | Log in to the guest. Run `/status`. The line `Setting sources` must name the managed file. Repeat after any change in the Teams organization. |
 ## Open questions
 
 | ID | Question | Topic doc | How to answer |
@@ -60,8 +60,8 @@ The git history keeps the deleted rows.
 | Q7 | How does bitbake behave across `virsh suspend` and resume, including fetches in progress and `BB_SERVER_TIMEOUT`? | run-control | Suspend during a build. |
 | Q8 | Does a background bitbake task that finishes after the Escape key wake Claude Code and use quota? | run-control | Test one interrupted run. |
 | Q9 | Does Haiku usage count differently from other models against the weekly quota on Teams? | run-control | Read `/usage` before and after a Haiku session. |
-| Q10 | How should plugins be installed: `--plugin-dir` or a local marketplace? How do `enabledPlugins` and `extraKnownMarketplaces` behave in user settings? | claude-code | Test both ways. |
+| Q10 | Does a local `directory` marketplace at `/opt/claude-marketplace` work with the managed keys (`extraKnownMarketplaces`, `strictKnownMarketplaces`, `enabledPlugins`) and with `strictPluginOnlyCustomization`? The docs say that such a plugin loads in place. The fallback is a read-only seed directory (`CLAUDE_CODE_PLUGIN_SEED_DIR`). | claude-code | Test it in the guest with a plugin that has a skill and a hook. |
 | Q11 | What does the `autoMode.environment` guidance need to say? | claude-code | Read the auto mode configuration page. |
 | Q12 | Which switches turn off telemetry and error reporting but keep auto-updates and feature flags, and does auto mode work with them? | claude-code | Read the environment variable page. Test auto mode with the switches set. |
-| Q14 | Does the company allow unattended automation on a Teams login, and what is the procedure if the token leaks? An API key with a spend limit is an alternative. | claude-code | Ask the owner of the company account. |
+| Q14 | Does the company allow unattended automation on a Teams login, and what is the procedure if the token leaks? Per-token billing is not allowed in this design. | claude-code | Ask the owner of the company account. |
 | Q15 | Can the quarry guest run QEMU with KVM (nested virtualization) fast enough for the test suite? | test suite | Check `kvm_intel nested` on the quarry host and run the suite in the guest. |
