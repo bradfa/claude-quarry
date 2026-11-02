@@ -10,8 +10,9 @@ writes it to the host disk (see `installer.md`).
 - Debian 13 (trixie).
 - One wired network connection to the office LAN. The reference host uses its
   onboard Ethernet port (`eno1`).
-- Secure Boot is off on the reference host. The baseline does not need it to be
-  on or off.
+- Secure Boot can be on or off. The baseline boots in both cases. It is off on
+  the reference host for now. The test suite always boots the image with Secure
+  Boot on.
 
 The reference host is an HP EliteDesk with an Intel i7-4770 (4 cores, 8
 threads), a Q87 chipset, 15 GiB of RAM, and one 1 TB spinning disk. Its
@@ -27,6 +28,7 @@ off VMX, so the `kvm-ok` tool is not needed.
 | Topic | Decision |
 | --- | --- |
 | Boot | UEFI and systemd-boot. No GRUB. |
+| Secure Boot | The image boots with Secure Boot on and off. The chain is the Microsoft shim, `systemd-boot`, and the kernel. Debian signs all three, so updates need no key of the owner. See Secure Boot below. |
 | Storage | No LVM. A fixed-size root, a swap partition, and an XFS partition for VM storage that fills the rest of the disk. |
 | Network tool | `systemd-networkd` for everything. The image removes `ifupdown`. |
 | Host access | No root login and no passwords. The first user is in the `sudo` group and logs in with an SSH key. |
@@ -91,6 +93,60 @@ Rules for the layout:
   uses the monitor. The build variable `KERNEL_CMDLINE_EXTRA` adds options, for
   example a serial console for a virtual machine test.
 
+### Secure Boot
+
+The image boots with Secure Boot on and off. The shim does nothing when Secure
+Boot is off.
+
+- The chain: the firmware trusts the Microsoft UEFI CA, and Microsoft signs the
+  Debian `shim`. The `shim` holds the Debian CA. Debian signs `systemd-boot` and
+  the kernel. The firmware starts the `shim`, the `shim` starts `systemd-boot`,
+  and `systemd-boot` starts the kernel.
+- The recipe installs `shim-signed` and `systemd-boot-efi-amd64-signed` in the
+  same step as `systemd-boot`. The scripts of the `systemd-boot` package then
+  put the signed `shim` at `EFI/BOOT/BOOTX64.EFI` (the removable-media path) and
+  in `EFI/debian`. A dpkg trigger keeps these files current after a package
+  update, so `unattended-upgrades` needs no extra step.
+- A new host has no boot entry. The `shim` at the removable-media path starts
+  its fallback program. The program reads `EFI/debian/BOOTX64.CSV`, makes the
+  boot entry in the firmware variables, and reboots once. The entry starts the
+  `shim` with `systemd-boot` as the second stage [A33].
+- The recipe does not install `efibootmgr`. The package scripts would then write
+  boot entries during the build. A build that runs on the build machine, without
+  the virtual machine of `debos`, could reach the firmware variables of that
+  machine.
+- With Secure Boot on, the kernel starts in lockdown mode. Lockdown blocks
+  unsigned kernel modules, access to `/dev/mem`, and the start of an unsigned
+  kernel with `kexec`. The image has no module that Debian does not sign. It is
+  not verified that lockdown allows libvirt and VFIO passthrough [A32].
+
+What Secure Boot does not verify: the initrd, the kernel command line (in
+`/boot/efi/loader/entries`), and the root file system. An attacker who has root
+on the host can still change them and keep a foothold. Only a verified root file
+system (dm-verity) closes this gap. It needs image-based updates, and it stops
+the daily `apt` updates. The owner chose the daily updates. The main attack on
+this host is a bug in QEMU or in the kernel, and a fast patch is the best
+defense. The recovery for a host that someone may have changed is the USB
+installer.
+
+The reference firmware, from commands that the owner ran on 2026-11-02:
+
+| Item | Content |
+| --- | --- |
+| Platform key | HP |
+| KEK | Microsoft KEK CA 2011 and an HP key |
+| `db` | Microsoft UEFI CA 2011, Microsoft Windows Production PCA 2011, and an HP key |
+| Debian `shim` | Two signatures: one from the UEFI CA 2011 and one from the UEFI CA 2023 |
+
+- The firmware has the 2011 CA, so it accepts the first signature of the `shim`.
+  The 2011 certificates are past their "Not After" date (June 2026). A firmware
+  has no trusted clock, and it should ignore the date. A real boot shows this
+  [A33].
+- A later `shim` can carry only the 2023 signature. The firmware then needs the
+  Microsoft UEFI CA 2023 in its `db`. Microsoft publishes a `db` update that the
+  KEK CA 2011 signs, and `fwupd` can apply it. Do this before the host takes a
+  `shim` with one signature [A34].
+
 ### Network and services
 
 - `systemd-networkd` configures every wired NIC with DHCP. The match uses the
@@ -148,18 +204,26 @@ setting.
 
 - The `en*` match does not match a NIC that is bound to `vfio-pci` [A26].
 - The real firmware boots the image through the removable-media path in the ESP
-  [Q6].
+  [Q6]. With Secure Boot on, this path holds the `shim`, and the `shim` fallback
+  makes the boot entry [A33].
+- Lockdown mode allows libvirt and VFIO passthrough [A32].
+- The Microsoft UEFI CA 2023 update works on the reference firmware [A34].
 
 ## Risks
 
 | Risk | Mitigation | Status |
 | --- | --- | --- |
 | Builds are slow on the spinning disk and 15 GiB of RAM | Start small, measure, and add an SSD later | Accepted for now |
+| A `shim` update has only the 2023 signature, and the firmware has no 2023 CA. The host then does not boot after the next reboot. | Add the 2023 CA to the firmware `db` first [A34] | Open |
+| Secure Boot does not verify the initrd, the command line, and the root file system | Daily updates and fast patches. The USB installer is the recovery | Accepted by the owner |
 
 ## Tests
 
 `test/test_host_image.py` tests the image in QEMU. `test/README.md` explains how
-to run it. The checks on the real host are in `test/manual/real-host.md`.
+to run it. The tests boot every machine with the Secure Boot firmware. Step 10
+checks the chain, and it shows that the firmware refuses a kernel and a
+`systemd-boot` without their signatures. The checks on the real host are in
+`test/manual/real-host.md`.
 
 ## Sources
 
@@ -168,3 +232,11 @@ to run it. The checks on the real host are in `test/manual/real-host.md`.
   <https://raw.githubusercontent.com/torvalds/linux/master/arch/x86/kernel/cpu/feat_ctl.c>
 - Debian 13 KVM host checks: <https://computingforgeeks.com/?p=21285>
 - The host measurements in `host-discovery.txt` and `host-discovery-2.txt`.
+- The Debian wiki page about Secure Boot (the chain, signed kernels, lockdown,
+  and `systemd-boot` with the `shim`): <https://wiki.debian.org/SecureBoot>
+- The maintainer script of the `systemd-boot` package (the files that it puts
+  in the ESP, and its trigger):
+  <https://sources.debian.org/src/systemd/257.13-1~deb13u1/debian/systemd-boot.postinst/>
+- The output of `mokutil --pk`, `--kek`, and `--db`, and of `sbverify --list`
+  for `shimx64.efi.signed`, that the owner ran on the reference host on
+  2026-11-02.

@@ -23,7 +23,9 @@ the runbook must say this in plain words.
   version used `gzip`, and it needed about 2 minutes on the 34 GB image. `zstd`
   is much faster on this mostly empty image.
 - The installer boots by UEFI with systemd-boot, like the host. Its ESP is 512
-  MiB, because it holds one kernel.
+  MiB, because it holds one kernel. It has the same Secure Boot chain as the
+  host (the shim, the signed `systemd-boot`, and the signed kernel), so the
+  stick boots with Secure Boot on and off. See `host-baseline.md`.
 - The installer logs in as root on the console without a password, on tty1 and
   on the serial ports. It has no network service. The user needs physical
   access to the stick.
@@ -69,12 +71,14 @@ held secrets.
 ## Not verified
 
 - The real firmware boots the installer through the removable-media path in the
-  ESP [Q6].
+  ESP [Q6]. With Secure Boot on, this path holds the shim, and the shim
+  fallback makes the boot entry [A33].
 
 ## Tests
 
 `test/test_installer.py` tests the installer in QEMU. It writes the host image
-to a virtual disk and boots that disk. `test/README.md` explains how to run it.
+to a virtual disk and boots that disk. Both boots use the Secure Boot firmware.
+`test/README.md` explains how to run it.
 The checks on the real host are in `test/manual/real-host.md`.
 
 ## Sources

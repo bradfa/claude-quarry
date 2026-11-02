@@ -48,3 +48,21 @@ Do this after the Ethernet card for the guest is in the host.
 | --- | --- | --- | --- |
 | 3.1 | `networkctl list` | The onboard card is configured by `10-wired.network`. The added card has no configuration from it | A26 |
 | 3.2 | Bind the added card to `vfio-pci`, then run `networkctl list` | The bound card does not appear, and the onboard card still works | A26 |
+
+## 4. Secure Boot
+
+Run sections 1 and 2 first, with Secure Boot on or off. Then turn Secure Boot on
+in the firmware menu, and leave the keys as they are. If the host does not boot,
+turn Secure Boot off again. The virtual machine tests already show that the
+firmware chain works, so a failure here points to the real firmware.
+
+| # | Check | Expected result | Open point |
+| --- | --- | --- | --- |
+| 4.1 | Boot the installer stick with Secure Boot on | The banner appears. The first boot has one extra reboot (the shim fallback) | A33 |
+| 4.2 | Boot the host disk with Secure Boot on | A login prompt, within 1 minute of the extra reboot | A33 |
+| 4.3 | `mokutil --sb-state` | `SecureBoot enabled` | |
+| 4.4 | `cat /sys/kernel/security/lockdown` | `[integrity]` is marked | |
+| 4.5 | `bootctl status` | `Secure Boot: enabled (user)`, and the loader is `systemd-boot` | |
+| 4.6 | Install `fwupd` by hand, then run `fwupdmgr get-devices` and `fwupdmgr get-updates` | The tool lists a `db` update for the Microsoft UEFI CA 2023, or it says that none is available | A34 |
+| 4.7 | After the update of check 4.6 (if one exists), run `mokutil --db` and reboot | `Microsoft UEFI CA 2023` is in the list, and the host still boots | A34 |
+| 4.8 | After the cards are in the host, bind a card to `vfio-pci`, start a guest with it, and read `dmesg` | The guest starts, and `dmesg` shows no lockdown message about the card | A32 |

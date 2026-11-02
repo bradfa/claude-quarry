@@ -111,7 +111,7 @@ implementation differs, we change the document.
 
 | Document | Topic |
 | --- | --- |
-| `doc/design/host-baseline.md` | The host image: disk layout, boot, network, access |
+| `doc/design/host-baseline.md` | The host image: disk layout, boot, Secure Boot, network, access |
 | `doc/design/installer.md` | The USB installer and its safety rules |
 | `doc/design/passthrough.md` | IOMMU, VFIO, the two cards, and reset behavior |
 | `doc/design/guest-storage.md` | Base image, overlay, data disk, snapshots, recovery |

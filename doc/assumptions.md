@@ -44,6 +44,9 @@ The git history keeps the deleted rows.
 | A29 | An update of the `claude-code` package does not harm a running Claude Code session. | claude-code | Update the package during a session. Check that the session continues. |
 | A30 | The socket of an agent that `sshd` forwards to the admin account cannot be used by the Claude account. | guest-access | In an admin session with `ssh -A`, run `ssh-add -l` as the Claude account with that socket path. It must fail. |
 | A31 | A checked tarball extraction by a root-owned service gives a root file system for NFS without a way out of the target directory. | guest-access | Design the checks, then test a tarball with `..` paths, absolute paths, and links. |
+| A32 | Kernel lockdown (on with Secure Boot) does not block libvirt and the VFIO passthrough of the PCIe cards. | host-baseline | With Secure Boot on, bind a card to `vfio-pci`, start a guest with it (rollout stage 5), and read `dmesg` for lockdown messages. |
+| A33 | On the reference firmware with Secure Boot on, the shim boots from the removable-media path. The shim fallback makes the boot entry and reboots once. | host-baseline | Boot the installer and the host disk on the real host with Secure Boot on (`test/manual/real-host.md`, section 4). |
+| A34 | The Microsoft db update for the UEFI CA 2023 works on the reference firmware, and `fwupd` can apply it. | host-baseline | Run `fwupdmgr get-devices` and `fwupdmgr get-updates` on the host. Apply the update, and run `mokutil --db`. |
 
 ## Open questions
 
