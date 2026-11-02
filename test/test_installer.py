@@ -115,6 +115,12 @@ def test_3_08_target_has_the_image_partitions(installer, target, installed):
     assert_image_partitions(lsblk_children(out))
 
 
+def test_3_09_installer_boots_with_secure_boot(installer):
+    # The suite boots every machine with the Secure Boot firmware. The USB
+    # stick must boot on a PC that has Secure Boot on.
+    assert "SecureBoot enabled" in installer.check("mokutil --sb-state").output
+
+
 # Step 4: boot the installed disk. The installer stops first, because two
 # machines cannot open one disk file.
 
@@ -139,6 +145,12 @@ def test_4_03_swap_active(installed_vm):
 
 def test_4_04_no_failed_units(installed_vm):
     assert failed_units(installed_vm) == []
+
+
+def test_4_05_installed_disk_boots_with_secure_boot(installed_vm):
+    # A new firmware has no boot entry. The disk boots through the shim at the
+    # removable-media path, and the shim fallback makes the entry (Q6, A33).
+    assert "SecureBoot enabled" in installed_vm.check("mokutil --sb-state").stdout
 
 
 # Step 5: a disk without a name in /dev/disk/by-id
