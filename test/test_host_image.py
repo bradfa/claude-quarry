@@ -329,7 +329,8 @@ def test_10_04_esp_has_the_signed_files(vm_a, installed, packaged):
 
 
 def test_10_05_boot_entry_points_to_shim(vm_a):
-    # The shim fallback makes this entry on the first boot, and then it reboots.
+    # The shim makes this entry (BOOTX64.CSV). A new firmware has no entry, and
+    # the first boot starts the shim at the removable-media path.
     command = ("for f in /sys/firmware/efi/efivars/Boot[0-9A-F][0-9A-F][0-9A-F][0-9A-F]-*; do "
                "tr -d '\\000' < \"$f\" | grep -aqi shimx64.efi && echo \"$f\"; done; true")
     assert vm_a.check(command).stdout.strip(), "no boot entry in the firmware variables points to the shim"
@@ -341,18 +342,31 @@ def test_10_05_boot_entry_points_to_shim(vm_a):
 REFUSE_WAIT = 120 if HAS_KVM else 900
 
 
-def assert_boot_refused(machine):
+def assert_boot_refused(machine, shown=(), not_shown=()):
+    """Start the machine and check that the boot stops. shown: texts that must
+    be on the serial console: the refusal, and the proof that the boot got that
+    far. not_shown: texts of a program that must not run."""
     machine.start(wait=False)
     try:
         deadline = time.monotonic() + REFUSE_WAIT
+        seen_at = None
         while time.monotonic() < deadline:
             assert machine.proc.poll() is None, f"QEMU stopped. See {machine.qemu_log}"
             assert machine.run("true", timeout=10).returncode != 0, "the machine booted and accepted a login"
+            if shown and all(text in machine.serial_text() for text in shown):
+                seen_at = seen_at or time.monotonic()
+                if time.monotonic() - seen_at > 15:
+                    break
             time.sleep(5)
         serial = machine.serial_text()
     finally:
         machine.stop()
-    assert "Linux version" not in serial, f"the kernel started:\n{serial[-2000:]}"
+    tail = serial[-2000:]
+    assert "Linux version" not in serial, f"the kernel started:\n{tail}"
+    for text in shown:
+        assert text in serial, f"'{text}' is not on the serial console:\n{tail}"
+    for text in not_shown:
+        assert text not in serial, f"'{text}' is on the serial console:\n{tail}"
 
 
 @pytest.fixture(scope="module")
@@ -363,7 +377,9 @@ def unsigned_kernel_disk(host_image, work_dir):
 
 
 def test_10_10_unsigned_kernel_is_refused(make_vm, unsigned_kernel_disk):
-    assert_boot_refused(make_vm("refused-kernel", None, disk=unsigned_kernel_disk))
+    # systemd-boot runs and shows its menu. Then it cannot load the kernel.
+    assert_boot_refused(make_vm("refused-kernel", None, disk=unsigned_kernel_disk),
+                        shown=("Debian GNU/Linux", "Security violation"))
 
 
 def test_10_11_unsigned_kernel_boots_without_secure_boot(make_vm, unsigned_kernel_disk):
@@ -376,4 +392,5 @@ def test_10_11_unsigned_kernel_boots_without_secure_boot(make_vm, unsigned_kerne
 def test_10_12_unsigned_systemd_boot_is_refused(make_vm, host_image, work_dir):
     disk = work_dir / "unsigned-systemd-boot.qcow2"
     make_disk_with_unsigned_file(host_image, disk, work_dir, "/EFI/systemd/systemd-bootx64.efi")
-    assert_boot_refused(make_vm("refused-systemd-boot", None, disk=disk))
+    # The shim refuses to start it, so its menu never appears.
+    assert_boot_refused(make_vm("refused-systemd-boot", None, disk=disk), not_shown=("Debian GNU/Linux",))
