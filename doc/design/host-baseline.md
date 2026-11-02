@@ -107,10 +107,13 @@ Boot is off.
   put the signed `shim` at `EFI/BOOT/BOOTX64.EFI` (the removable-media path) and
   in `EFI/debian`. A dpkg trigger keeps these files current after a package
   update, so `unattended-upgrades` needs no extra step.
-- A new host has no boot entry. The `shim` at the removable-media path starts
-  its fallback program. The program reads `EFI/debian/BOOTX64.CSV`, makes the
-  boot entry in the firmware variables, and reboots once. The entry starts the
-  `shim` with `systemd-boot` as the second stage [A33].
+- A new host has no boot entry. On the first boot, the firmware starts the
+  `shim` at the removable-media path, and the `shim` starts `systemd-boot`. The
+  file `EFI/debian/BOOTX64.CSV` names `systemd-boot` as the second stage. By the
+  second boot, the firmware variables hold an entry named `Debian` that starts
+  `EFI/debian/shimx64.efi`. In the virtual machine tests, the first boot had no
+  extra reboot. Nobody traced which part of the `shim` makes the entry. The
+  real firmware can behave differently [A33].
 - The recipe does not install `efibootmgr`. The package scripts would then write
   boot entries during the build. A build that runs on the build machine, without
   the virtual machine of `debos`, could reach the firmware variables of that

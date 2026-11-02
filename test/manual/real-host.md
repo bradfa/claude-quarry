@@ -58,8 +58,8 @@ firmware chain works, so a failure here points to the real firmware.
 
 | # | Check | Expected result | Open point |
 | --- | --- | --- | --- |
-| 4.1 | Boot the installer stick with Secure Boot on | The banner appears. The first boot has one extra reboot (the shim fallback) | A33 |
-| 4.2 | Boot the host disk with Secure Boot on | A login prompt, within 1 minute of the extra reboot | A33 |
+| 4.1 | Boot the installer stick with Secure Boot on | The banner appears. The firmware can reboot once on the first boot. The virtual machine did not | A33 |
+| 4.2 | Boot the host disk with Secure Boot on, then reboot it once | A login prompt both times. After the second boot, the firmware menu or `bootctl status` shows an entry for the shim (`Debian`) | A33 |
 | 4.3 | `mokutil --sb-state` | `SecureBoot enabled` | |
 | 4.4 | `cat /sys/kernel/security/lockdown` | `[integrity]` is marked | |
 | 4.5 | `bootctl status` | `Secure Boot: enabled (user)`, and the loader is `systemd-boot` | |
