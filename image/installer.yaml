@@ -100,11 +100,15 @@ actions:
 {{- end }}
 
   # The package installs the boot loader in the mounted ESP and makes the
-  # entry for the kernel that is already in the image.
+  # entry for the kernel that is already in the image. The shim and the signed
+  # systemd-boot let the stick boot with Secure Boot on (see host.yaml). Do not
+  # add efibootmgr, for the reason that host.yaml gives.
   - action: apt
-    description: Install systemd-boot bootloader
+    description: Install systemd-boot bootloader and the Secure Boot shim
     packages:
+      - shim-signed
       - systemd-boot
+      - systemd-boot-efi-amd64-signed
 
   - action: run
     description: Fix up the systemd-boot default timeout

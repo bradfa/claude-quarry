@@ -244,10 +244,20 @@ actions:
       - firmware-misc-nonfree
       - firmware-realtek
 
+  # Secure Boot: the firmware trusts the Microsoft shim, the shim trusts the
+  # Debian CA, and Debian signs systemd-boot and the kernel. With shim-signed
+  # and the signed systemd-boot in the same install, the systemd-boot package
+  # scripts put the shim at EFI/BOOT/BOOTX64.EFI, and a dpkg trigger keeps the
+  # ESP current after updates. The shim does nothing when Secure Boot is off.
+  # Do not add efibootmgr. The scripts would then write boot entries to NVRAM,
+  # and a build that runs on the build machine could reach its NVRAM. The shim
+  # fallback makes the entry on the first boot instead.
   - action: apt
-    description: Install systemd-boot bootloader
+    description: Install systemd-boot bootloader and the Secure Boot shim
     packages:
+      - shim-signed
       - systemd-boot
+      - systemd-boot-efi-amd64-signed
 
   - action: run
     description: Fix up the systemd-boot default timeout
