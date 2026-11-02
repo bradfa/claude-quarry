@@ -104,6 +104,25 @@ guest has SSH.
 The owner connects over SSH and starts tmux inside the guest (`tmux new -A -s
 main`), so the session survives disconnects.
 
+## Publish the work
+
+The guest holds no git credential, so Claude cannot push. Claude commits to a
+repository in the guest. The owner fetches the commits from the guest on the
+daily machine, reviews them, and pushes them from there:
+
+```
+git remote add quarry ssh://quarry-guest/workspace/repo
+git fetch quarry
+git push origin quarry/branch:branch
+```
+
+- Do not forward an SSH agent into the guest. While the session is open, every
+  process in the guest can ask the agent to sign, and that includes Claude and
+  anything that a prompt injection starts. A touch or PIN policy on the key does
+  not change this fully. A touch that the owner gives for one purpose can
+  authorize another.
+- The fetch is also a review point. Nothing leaves the quarry without the owner.
+
 ## Risks
 
 | Risk | Mitigation | Status |
