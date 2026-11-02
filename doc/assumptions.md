@@ -56,6 +56,6 @@ The git history keeps the deleted rows.
 | Q9 | Does Haiku usage count differently from other models against the weekly quota on Teams? | run-control | Read `/usage` before and after a Haiku session. |
 | Q10 | How should plugins be installed: `--plugin-dir` or a local marketplace? How do `enabledPlugins` and `extraKnownMarketplaces` behave in user settings? | claude-code | Test both ways. |
 | Q11 | What does the `autoMode.environment` guidance need to say? | claude-code | Read the auto mode configuration page. |
-| Q12 | Does auto mode still work with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`? | claude-code | Test it. |
+| Q12 | Which switches turn off telemetry and error reporting but keep auto-updates and feature flags, and does auto mode work with them? | claude-code | Read the environment variable page. Test auto mode with the switches set. |
 | Q14 | Does the company allow unattended automation on a Teams login, and what is the procedure if the token leaks? An API key with a spend limit is an alternative. | claude-code | Ask the owner of the company account. |
 | Q15 | Can the quarry guest run QEMU with KVM (nested virtualization) fast enough for the test suite? | test suite | Check `kvm_intel nested` on the quarry host and run the suite in the guest. |

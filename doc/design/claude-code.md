@@ -15,6 +15,7 @@ directory that the host keeps up to date.
 | Permissions | Auto mode with written guidance. No hard allow, ask, or deny rules. | See Permissions below. |
 | Sandbox | The Claude Code sandbox is not used. | See below. |
 | Credentials | The guest holds no git or cloud credentials. The Claude login is the only token. | The guest can fetch from the internet without authentication. |
+| Updates | Claude Code updates itself on the `stable` channel. The owner trusts the official releases. | See Install |
 | Sessions | The first sessions are interactive, in tmux. Headless runs (`claude -p`) may come later. | |
 
 ## Install
@@ -23,10 +24,17 @@ directory that the host keeps up to date.
   `--dangerously-skip-permissions` as root, and bitbake also refuses root
   [A18].
 - The installer is a curl-and-bash script [A19].
-- Pin the version with `claude install <version>`.
-- Set `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`. It turns off auto-updates,
-  telemetry, and error reporting. It also turns off the fetch of feature flags.
-  Test that auto mode still works with it [Q12].
+- Do not pin the version. The native install updates itself in the background.
+  An update takes effect the next time Claude Code starts, so the owner
+  restarts the app between turns.
+- Set `"autoUpdatesChannel": "stable"` in the guest settings template. The
+  `stable` channel is about one week behind `latest`, and it skips releases with
+  major regressions. A newly launched model can need a newer version than
+  `stable` has. Then change the channel to `latest`.
+- Do not set `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. It turns off
+  auto-updates and the fetch of feature flags. The documentation lists separate
+  switches for telemetry and error reporting. Find out which switch does what,
+  and test that auto mode still works with it [Q12].
 
 ## Login
 
@@ -138,6 +146,8 @@ git push origin quarry/branch:branch
 - Auto mode: <https://code.claude.com/docs/en/permission-modes>
 - The sandbox network proxy and nested namespaces:
   <https://code.claude.com/docs/en/sandboxing>
+- Install, auto-updates, and release channels:
+  <https://code.claude.com/docs/en/setup>
 - Commands and flags (`--plugin-dir`, `claude install`):
   <https://code.claude.com/docs/en/cli-reference>
 - Settings files, precedence, and folder trust:
