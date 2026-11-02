@@ -81,6 +81,7 @@ actions:
       - systemd-repart
       - systemd-resolved
       - tmux
+      - unattended-upgrades
       - usbutils
       - xfsprogs
       - zstd

@@ -163,6 +163,19 @@ def test_4_15_ifupdown_is_gone(vm_a):
     assert vm_a.run("systemctl cat networking.service").returncode != 0
 
 
+@pytest.mark.parametrize("timer", ["apt-daily.timer", "apt-daily-upgrade.timer"])
+def test_4_16_update_timer_active(vm_a, timer):
+    assert vm_a.check(f"systemctl is-enabled {timer}").stdout.strip() == "enabled"
+    assert vm_a.check(f"systemctl is-active {timer}").stdout.strip() == "active"
+
+
+def test_4_17_updates_are_on_and_reboot_is_off(vm_a):
+    config = vm_a.check("apt-config dump").stdout
+    assert 'APT::Periodic::Update-Package-Lists "1";' in config
+    assert 'APT::Periodic::Unattended-Upgrade "1";' in config
+    assert 'Unattended-Upgrade::Automatic-Reboot "false";' in config
+
+
 # Step 5: access control
 
 def test_5_00_agent_is_forwarded(vm_a, sudo_mode_agent):

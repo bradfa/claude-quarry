@@ -32,6 +32,7 @@ off VMX, so the `kvm-ok` tool is not needed.
 | Host access | No root login and no passwords. The first user is in the `sudo` group and logs in with an SSH key. |
 | `sudo` | The forwarded SSH agent gates `sudo` (`pam_ssh_agent_auth`). The build variable `SUDO_MODE=nopasswd` removes the check. |
 | Time sync | `chrony` with the global `pool.ntp.org` pool. `chrony` handles a bad clock better than `ntpd`. |
+| Updates | `unattended-upgrades` installs the updates of the Debian and security suites every day. It never reboots the host. |
 | Image settings | The build script takes the user name, the SSH key, and other settings from environment variables, a config file, or a prompt. The recipes hold no user name and no key. |
 | Host disk | Use the existing spinning disk first. |
 
@@ -103,6 +104,12 @@ Rules for the layout:
   the first updates.
 - `openssh-server` is on. The SSH configuration has no root login and no
   password login.
+- The package defaults of `unattended-upgrades` do the update work. The image
+  has no configuration file for it. The two `apt` timers run once a day. The
+  defaults cover the base suite and `trixie-security`, but not `trixie-updates`.
+  An automatic reboot is off, because a reboot stops the guest and any run in
+  it. After a kernel update, the owner reboots the host when no run is active.
+  `/var/run/reboot-required` shows that a reboot is due.
 - The recipe installs `amd64-microcode`, `intel-microcode`, and the non-free
   firmware for Realtek and miscellaneous devices.
 
