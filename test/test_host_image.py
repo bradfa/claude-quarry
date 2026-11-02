@@ -392,5 +392,7 @@ def test_10_11_unsigned_kernel_boots_without_secure_boot(make_vm, unsigned_kerne
 def test_10_12_unsigned_systemd_boot_is_refused(make_vm, host_image, work_dir):
     disk = work_dir / "unsigned-systemd-boot.qcow2"
     make_disk_with_unsigned_file(host_image, disk, work_dir, "/EFI/systemd/systemd-bootx64.efi")
-    # The shim refuses to start it, so its menu never appears.
-    assert_boot_refused(make_vm("refused-systemd-boot", None, disk=disk), not_shown=("Debian GNU/Linux",))
+    # The shim shows an error and waits for a key. The menu of systemd-boot
+    # never appears.
+    assert_boot_refused(make_vm("refused-systemd-boot", None, disk=disk),
+                        shown=("Verification failed",), not_shown=("Debian GNU/Linux",))

@@ -113,10 +113,13 @@ def changed_runs(image: Path, start: int, esp: Path, size: int) -> list[tuple[in
     return runs
 
 
-def make_disk_with_unsigned_file(base_image: Path, disk: Path, work_dir: Path, esp_file: str | None = None) -> str:
+def make_disk_with_unsigned_file(base_image: Path, disk: Path, work_dir: Path, esp_file: str | None = None,
+                                 disk_size: str = "100G") -> str:
     """Make disk as a qcow2 overlay of base_image. In the overlay, the file
     esp_file of the ESP (default: the kernel) has no signature. Return the
-    path of that file."""
+    path of that file. The disk is larger than the image, as for the other
+    test machines. On a disk with no free space, systemd-repart cannot make the
+    swap and vmdata partitions, and the boot waits 90 seconds for them."""
     start, size = esp_range(base_image)
     esp = work_dir / f"{disk.stem}-esp.img"
     patch = work_dir / f"{disk.stem}-file"
@@ -127,7 +130,7 @@ def make_disk_with_unsigned_file(base_image: Path, disk: Path, work_dir: Path, e
         patch.write_bytes(unsign(patch.read_bytes()))
         mtools("mcopy", esp, "-n", "-D", "o", str(patch), f"::{path}")
 
-        make_overlay(base_image, disk)
+        make_overlay(base_image, disk, disk_size)
         commands = []
         for index, (offset, length) in enumerate(changed_runs(base_image, start, esp, size)):
             run_file = work_dir / f"{disk.stem}-run{index}"
