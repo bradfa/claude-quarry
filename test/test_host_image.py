@@ -175,7 +175,9 @@ def test_4_17_updates_are_on_and_reboot_is_off(vm_a):
     config = vm_a.check("apt-config dump").stdout
     assert 'APT::Periodic::Update-Package-Lists "1";' in config
     assert 'APT::Periodic::Unattended-Upgrade "1";' in config
-    assert 'Unattended-Upgrade::Automatic-Reboot "false";' in config
+    # Debian ships the line commented out, and the default is no reboot. So
+    # the check is that nothing turns the reboot on.
+    assert not re.search(r'^Unattended-Upgrade::Automatic-Reboot "(true|1|yes)";', config, re.MULTILINE)
 
 
 # Step 5: access control
