@@ -16,6 +16,8 @@ import pytest
 
 from helpers import (EFI_SYSTEM, LINUX_ROOT_X86_64, assert_first_boot_layout, failed_units,
                      partition, partitions, swap_is_active)
+from secureboot import make_disk_with_unsigned_file
+from vm import HAS_KVM
 
 
 @pytest.fixture
@@ -293,3 +295,83 @@ def test_9_03_only_expected_units_fail(vm_full):
 def test_9_04_libvirt_directory_on_root(vm_full):
     assert vm_full.run("findmnt /var/lib/libvirt").returncode != 0
     vm_full.check("test -d /var/lib/libvirt")
+
+
+# Step 10: Secure Boot. The suite boots every machine with the Secure Boot
+# firmware, so all the tests above already show that the signed chain boots.
+# The firmware trusts the Microsoft CA, the shim trusts the Debian CA, and
+# Debian signs systemd-boot and the kernel. The initrd and the kernel command
+# line are not verified (see host-baseline.md).
+
+def test_10_01_secure_boot_is_enforced(vm_a):
+    assert "SecureBoot enabled" in vm_a.check("mokutil --sb-state").stdout
+
+
+def test_10_02_kernel_lockdown_is_on(vm_a):
+    assert re.search(r"\[(integrity|confidentiality)\]", vm_a.check("cat /sys/kernel/security/lockdown").stdout)
+
+
+def test_10_03_kernel_package_is_signed(vm_a):
+    # Debian names the unsigned kernel packages linux-image-*-unsigned.
+    vm_a.check("dpkg -s linux-image-$(uname -r)")
+    assert vm_a.run("dpkg -l 'linux-image-*-unsigned' | grep -q '^ii'").returncode != 0
+
+
+@pytest.mark.parametrize("installed, packaged", [
+    ("/boot/efi/EFI/BOOT/BOOTX64.EFI", "/usr/lib/shim/shimx64.efi.signed"),
+    ("/boot/efi/EFI/debian/shimx64.efi", "/usr/lib/shim/shimx64.efi.signed"),
+    ("/boot/efi/EFI/systemd/systemd-bootx64.efi", "/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed"),
+])
+def test_10_04_esp_has_the_signed_files(vm_a, installed, packaged):
+    vm_a.check_sudo(f"cmp {installed} {packaged}")
+
+
+def test_10_05_boot_entry_points_to_shim(vm_a):
+    # The shim fallback makes this entry on the first boot, and then it reboots.
+    command = ("for f in /sys/firmware/efi/efivars/Boot[0-9A-F][0-9A-F][0-9A-F][0-9A-F]-*; do "
+               "tr -d '\\000' < \"$f\" | grep -aqi shimx64.efi && echo \"$f\"; done; true")
+    assert vm_a.check(command).stdout.strip(), "no boot entry in the firmware variables points to the shim"
+
+
+# A file in the ESP without its signature must stop the boot. A boot that
+# stops cannot be seen as a login, so the tests wait and then look at the
+# serial log. Without KVM, a boot is much slower, so the wait is longer.
+REFUSE_WAIT = 120 if HAS_KVM else 900
+
+
+def assert_boot_refused(machine):
+    machine.start(wait=False)
+    try:
+        deadline = time.monotonic() + REFUSE_WAIT
+        while time.monotonic() < deadline:
+            assert machine.proc.poll() is None, f"QEMU stopped. See {machine.qemu_log}"
+            assert machine.run("true", timeout=10).returncode != 0, "the machine booted and accepted a login"
+            time.sleep(5)
+        serial = machine.serial_text()
+    finally:
+        machine.stop()
+    assert "Linux version" not in serial, f"the kernel started:\n{serial[-2000:]}"
+
+
+@pytest.fixture(scope="module")
+def unsigned_kernel_disk(host_image, work_dir):
+    disk = work_dir / "unsigned-kernel.qcow2"
+    make_disk_with_unsigned_file(host_image, disk, work_dir)
+    return disk
+
+
+def test_10_10_unsigned_kernel_is_refused(make_vm, unsigned_kernel_disk):
+    assert_boot_refused(make_vm("refused-kernel", None, disk=unsigned_kernel_disk))
+
+
+def test_10_11_unsigned_kernel_boots_without_secure_boot(make_vm, unsigned_kernel_disk):
+    # The control for test 10.10: the disk is fine, and only Secure Boot
+    # refuses it.
+    with make_vm("control-kernel", None, disk=unsigned_kernel_disk, secure_boot=False).running() as machine:
+        machine.check("true")
+
+
+def test_10_12_unsigned_systemd_boot_is_refused(make_vm, host_image, work_dir):
+    disk = work_dir / "unsigned-systemd-boot.qcow2"
+    make_disk_with_unsigned_file(host_image, disk, work_dir, "/EFI/systemd/systemd-bootx64.efi")
+    assert_boot_refused(make_vm("refused-systemd-boot", None, disk=disk))

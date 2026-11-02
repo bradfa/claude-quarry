@@ -65,7 +65,8 @@ def firmware_args(vars_file, secure_boot=True):
 
 def check_tools():
     """Return the name of the first missing prerequisite, or None."""
-    for tool in ("qemu-system-x86_64", "qemu-img", "ssh", "ssh-agent", "ssh-add"):
+    for tool in ("qemu-system-x86_64", "qemu-img", "qemu-io", "mdir", "mtype", "mcopy",
+                 "ssh", "ssh-agent", "ssh-add"):
         if shutil.which(tool) is None:
             return tool
     for firmware in (OVMF_CODE, OVMF_VARS, OVMF_CODE_SECBOOT, OVMF_VARS_SECBOOT):
@@ -96,7 +97,9 @@ class Vm:
         self.resize = resize
         self.extra_args = []
 
-    def start(self):
+    def start(self, wait=True):
+        """Start QEMU. With wait=False, do not wait for a login. A test that
+        expects a refused boot needs this."""
         if self.base_image is not None:
             make_overlay(self.base_image, self.disk, self.resize)
 
@@ -110,7 +113,8 @@ class Vm:
                 *self.extra_args]
         with open(self.qemu_log, "w") as log:
             self.proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
-        self.wait_for_ssh()
+        if wait:
+            self.wait_for_ssh()
 
     @contextlib.contextmanager
     def running(self) -> Iterator["Vm"]:

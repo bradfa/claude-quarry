@@ -12,8 +12,8 @@ host image and run all tests. They do not change your own `image/build.conf`.
 1. Install the packages (as root):
 
    ```
-   apt install debos bmap-tools zstd qemu-system-x86 qemu-utils ovmf \
-       openssh-client util-linux python3-pytest python3-pexpect python3-venv
+   apt install debos bmap-tools zstd qemu-system-x86 qemu-utils ovmf mtools \
+       fdisk openssh-client util-linux python3-pytest python3-pexpect python3-venv
    ```
 
 2. Make a test key and a test configuration. Run this in the top directory of
@@ -38,8 +38,9 @@ host image and run all tests. They do not change your own `image/build.conf`.
    BUILD_CONF=image/build/test.conf image/build.sh
    ```
 
-4. Run the tests. The suite boots about seven machines, and one test waits up
-   to 5 minutes for the time sync:
+4. Run the tests. The suite boots about ten machines. One test waits up to 5
+   minutes for the time sync, and two tests wait 2 minutes to prove that the
+   firmware refuses a boot:
 
    ```
    python3 -m venv --system-site-packages test/.venv
@@ -51,6 +52,11 @@ The last line of the output must show no failed test. The suite starts its own
 SSH agent for the agent mode of `sudo`, and it never uses your agent. The tests
 for the other sudo mode (`SUDO_MODE=nopasswd`) show as skipped. To run them,
 change the line in `image/build/test.conf`, build again, and run step 4 again.
+
+Every test machine boots with the Secure Boot firmware of the `ovmf` package
+(`OVMF_CODE_4M.secboot.fd` and the Microsoft keys in `OVMF_VARS_4M.ms.fd`).
+The images must boot through the signed chain. Two tests remove the signature
+from a file in the ESP, and the firmware must refuse that boot.
 
 What the configuration means:
 
@@ -67,7 +73,8 @@ read the same default.
 ## Without KVM
 
 QEMU then emulates the CPU. The tests still work, but each boot takes many
-minutes, and the suite waits up to 30 minutes for each boot.
+minutes, and the suite waits up to 30 minutes for each boot. The tests for a
+refused boot wait 15 minutes each.
 
 ## Dependencies
 
@@ -117,6 +124,7 @@ environment first, then from the file that `BUILD_CONF` names (the default is
 | `settings.py` | Reads the settings |
 | `vm.py` | Starts QEMU with OVMF on a free port, and runs commands over SSH |
 | `console.py` | Starts QEMU with `-nographic` and types at the serial console with `pexpect`, as a person does. The installer has no SSH |
+| `secureboot.py` | Makes a copy of a disk where one file in the ESP has no signature. It needs no root |
 | `helpers.py` | Checks that both test files use |
 | `conftest.py` | The fixtures |
 | `test_host_image.py` | The host image tests. A name such as `test_4_03` is check 4.3 of the old manual page |
