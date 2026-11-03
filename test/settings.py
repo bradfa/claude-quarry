@@ -13,16 +13,21 @@ REPO = Path(__file__).resolve().parent.parent
 BUILD_DIR = REPO / "image" / "build"
 LOG_DIR = BUILD_DIR / "test-logs"
 
-NAMES = ("ADMIN_USER", "ADMIN_SSH_KEY_FILE", "SUDO_MODE", "HOST_NAME")
+NAMES = ("ADMIN_USER", "ADMIN_SSH_KEY_FILE", "SUDO_MODE", "HOST_NAME",
+         "CLAUDE_USER", "CLAUDE_CODE_CHANNEL", "GUEST_NAME")
 
 
 @dataclass(frozen=True)
 class Settings:
     admin_user: str
+    claude_user: str
+    claude_code_channel: str
     private_key: Path
     sudo_mode: str
     host_name: str
+    guest_name: str
     host_image: Path
+    guest_image: Path
     installer_image: Path
 
 
@@ -62,14 +67,23 @@ def load() -> Settings:
     if sudo_mode not in ("agent", "nopasswd"):
         raise ValueError("SUDO_MODE must be agent or nopasswd")
 
+    channel = values.get("CLAUDE_CODE_CHANNEL", "stable")
+    if channel not in ("stable", "latest"):
+        raise ValueError("CLAUDE_CODE_CHANNEL must be stable or latest")
+
     host_image = Path(os.environ.get("QUARRY_TEST_HOST_IMAGE", BUILD_DIR / "host.img"))
+    guest_image = Path(os.environ.get("QUARRY_TEST_GUEST_IMAGE", BUILD_DIR / "guest.img"))
     installer_image = Path(os.environ.get("QUARRY_TEST_INSTALLER_IMAGE", BUILD_DIR / "installer.img"))
 
     return Settings(
         admin_user=values["ADMIN_USER"],
+        claude_user=values.get("CLAUDE_USER", "claude"),
+        claude_code_channel=channel,
         private_key=private_key,
         sudo_mode=sudo_mode,
         host_name=values.get("HOST_NAME", "quarry-host"),
+        guest_name=values.get("GUEST_NAME", "quarry-guest"),
         host_image=host_image,
+        guest_image=guest_image,
         installer_image=installer_image,
     )

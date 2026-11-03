@@ -89,3 +89,10 @@ def host_image(settings) -> Path:
     if not settings.host_image.is_file():
         pytest.skip(f"{settings.host_image} does not exist. Build it with image/build.sh host")
     return settings.host_image
+
+
+@pytest.fixture(scope="session")
+def guest_image(settings) -> Path:
+    if not settings.guest_image.is_file():
+        pytest.skip(f"{settings.guest_image} does not exist. Build it with image/build.sh guest")
+    return settings.guest_image

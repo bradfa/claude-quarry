@@ -44,6 +44,22 @@ def make_blank_disk(disk, size):
     subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2", str(disk), size], check=True)
 
 
+def make_data_disk(disk, size_gib=2):
+    """Make a sparse raw disk with an ext4 file system that has the label
+    "data", as the guest image expects. mke2fs needs no root for a file."""
+    mke2fs = shutil.which("mke2fs", path=os.environ["PATH"] + ":/usr/sbin:/sbin")
+    if mke2fs is None:
+        raise RuntimeError("mke2fs is not installed (package e2fsprogs)")
+    with open(disk, "wb") as handle:
+        handle.truncate(size_gib * 2**30)
+    subprocess.run([mke2fs, "-q", "-F", "-t", "ext4", "-L", "data", str(disk)], check=True)
+
+
+def data_disk_args(disk):
+    """The QEMU options that attach the data disk as the second virtio disk."""
+    return ["-drive", f"if=virtio,format=raw,file={disk}"]
+
+
 def firmware_args(vars_file, secure_boot=True):
     """Copy the variable store to vars_file and return the QEMU options for the
     machine and the firmware. Only a test that must prove that a disk is fine

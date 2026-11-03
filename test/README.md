@@ -13,7 +13,8 @@ host image and run all tests. They do not change your own `image/build.conf`.
 
    ```
    apt install debos bmap-tools zstd qemu-system-x86 qemu-utils ovmf mtools \
-       fdisk openssh-client util-linux python3-pytest python3-pexpect python3-venv
+       fdisk e2fsprogs openssh-client util-linux python3-pytest python3-pexpect \
+       python3-venv
    ```
 
 2. Make a test key and a test configuration. Run this in the top directory of
@@ -30,16 +31,18 @@ host image and run all tests. They do not change your own `image/build.conf`.
    EOF
    ```
 
-3. Build the host image and the USB installer. This takes some minutes and
-   needs Internet access. The installer carries the host image, so build both
-   again after every change of the recipes:
+3. Build the host image, the USB installer, and the guest image. This takes
+   some minutes and needs Internet access. The guest build also needs access to
+   `downloads.claude.ai`, because it installs Claude Code from the apt
+   repository of Anthropic. The installer carries the host image, so build both
+   again after every change of the host recipe:
 
    ```
    BUILD_CONF=image/build/test.conf image/build.sh
    ```
 
-4. Run the tests. The suite boots about ten machines. One test waits up to 5
-   minutes for the time sync, and two tests wait 2 minutes to prove that the
+4. Run the tests. The suite boots about thirteen machines. One test waits up to
+   5 minutes for the time sync, and two tests wait 2 minutes to prove that the
    firmware refuses a boot:
 
    ```
@@ -67,8 +70,10 @@ What the configuration means:
 | `SUDO_MODE=agent` | `sudo` asks an SSH agent to sign a challenge. This is the default of the project. The other mode is `nopasswd`, where `sudo` needs nothing |
 | `KERNEL_CMDLINE_EXTRA` | Makes the serial port the system console. Test 3.1 reads the boot messages from it |
 
-`HOST_NAME` is not in the file, so the default `quarry-host` applies. The tests
-read the same default.
+`HOST_NAME`, `GUEST_NAME`, `CLAUDE_USER`, and `CLAUDE_CODE_CHANNEL` are not in
+the file, so the defaults apply (`quarry-host`, `quarry-guest`, `claude`, and
+`stable`). The tests read the same defaults. The guest tests make a data disk
+for each guest themselves.
 
 ## Without KVM
 
@@ -97,14 +102,15 @@ no package from PyPI at this time.
 ## Settings
 
 The settings have the same names as in `image/build.sh`: `ADMIN_USER`,
-`ADMIN_SSH_KEY_FILE`, `SUDO_MODE`, and `HOST_NAME`. They come from the
-environment first, then from the file that `BUILD_CONF` names (the default is
+`ADMIN_SSH_KEY_FILE`, `SUDO_MODE`, `HOST_NAME`, `GUEST_NAME`, `CLAUDE_USER`, and
+`CLAUDE_CODE_CHANNEL`. They come from the environment first, then from the file that `BUILD_CONF` names (the default is
 `image/build.conf`). They must match the images that you test.
 
 | Variable | Meaning |
 | --- | --- |
 | `BUILD_CONF` | The configuration file, as for `image/build.sh` |
 | `QUARRY_TEST_HOST_IMAGE` | The host image to test. The default is `image/build/host.img` |
+| `QUARRY_TEST_GUEST_IMAGE` | The guest image to test. The default is `image/build/guest.img` |
 | `QUARRY_TEST_INSTALLER_IMAGE` | The installer to test. The default is `image/build/installer.img` |
 | `QUARRY_TEST_BOOT_TIMEOUT` | Seconds to wait for each boot. The default is 240 with KVM |
 | `QUARRY_TEST_INSTALL_TIMEOUT` | Seconds to wait for the installer to write the host image. The default is 1200 with KVM |
@@ -129,6 +135,8 @@ environment first, then from the file that `BUILD_CONF` names (the default is
 | `conftest.py` | The fixtures |
 | `test_host_image.py` | The host image tests. A name such as `test_4_03` is check 4.3 of the old manual page |
 | `test_installer.py` | The installer tests, in the same style. The tests write the host image to a virtual disk and boot that disk |
+| `test_guest_image.py` | The guest image tests: the two accounts, the SSH settings, the data disk and the configuration directory of Claude Code, the package and the update settings, and the managed files. They boot the guest with a data disk, reset the system disk, and boot a guest with no data disk |
+| `manual/real-guest.md` | The checks that need a login to Claude Code |
 
 Each test machine boots from a qcow2 overlay of the image, so the image file
 does not change.
