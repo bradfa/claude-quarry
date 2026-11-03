@@ -1,0 +1,12 @@
+# Take one package from the Anthropic repository, and nothing else. Without
+# this file, the repository could replace a Debian package such as libc6 or
+# openssh-server. Apt gives a record with a package name priority over a
+# "Package: *" record, and a negative priority prevents the install.
+# Do not pin a version number. A version pin stops the updates.
+Package: claude-code
+Pin: release o=Anthropic
+Pin-Priority: 500
+
+Package: *
+Pin: release o=Anthropic
+Pin-Priority: -1

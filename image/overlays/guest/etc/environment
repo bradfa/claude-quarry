@@ -1,0 +1,4 @@
+# Debian reads this file for every login through sshd (pam_env). The variable
+# moves all state of Claude Code to the data disk: the login, the settings, the
+# plugins, and the transcripts. The home directory stays on the overlay.
+CLAUDE_CONFIG_DIR=/data/claude-config

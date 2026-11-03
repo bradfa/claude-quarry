@@ -1,0 +1,9 @@
+# Match by type and name pattern, not by one fixed name, because the name of
+# the virtual NIC depends on the PCI slot that libvirt gives it.
+[Match]
+Type=ether
+Name=en*
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=yes

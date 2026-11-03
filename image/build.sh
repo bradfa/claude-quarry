@@ -7,10 +7,12 @@
 #   3. a prompt, only when stdin is a terminal
 # A required setting with no value stops the script before debos starts.
 #
-# Usage: image/build.sh [host] [installer]
+# Usage: image/build.sh [host] [installer] [guest]
 #
-# With no target, the script builds the host image and then the installer. The
-# installer carries the host image, so the order is fixed.
+# With no target, the script builds the host image, then the installer, then
+# the guest image. The installer carries the host image, so the order of these
+# two is fixed. The guest image build downloads Claude Code from the Anthropic
+# apt repository, so it needs access to downloads.claude.ai.
 
 set -euo pipefail
 
@@ -31,6 +33,7 @@ load_config() {
         [[ $key =~ ^[[:space:]]*(#|$) ]] && continue
         case $key in
             ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | INSTALLER_SIZE | MIRROR | KERNEL_CMDLINE_EXTRA) ;;
+            CLAUDE_USER | CLAUDE_CODE_CHANNEL | GUEST_NAME | GUEST_IMAGE_SIZE | GUEST_EXTRA_PACKAGES) ;;
             *) die "unknown setting in $file: $key" ;;
         esac
         [[ -n ${!key:-} ]] || printf -v "$key" '%s' "$value"
@@ -56,6 +59,11 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 : "${INSTALLER_SIZE:=8GB}"
 : "${MIRROR:=http://deb.debian.org/debian/}"
 : "${KERNEL_CMDLINE_EXTRA:=}"
+: "${CLAUDE_USER:=claude}"
+: "${CLAUDE_CODE_CHANNEL:=stable}"
+: "${GUEST_NAME:=quarry-guest}"
+: "${GUEST_IMAGE_SIZE:=32GB}"
+: "${GUEST_EXTRA_PACKAGES:=}"
 
 # The recipe repeats these checks, so a typo fails in seconds and not after
 # a debootstrap run.
@@ -68,6 +76,19 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
     die "HOST_NAME is not a valid host name"
 [[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 34GB"
 [[ $INSTALLER_SIZE =~ ^[0-9]+GB$ ]] || die "INSTALLER_SIZE must look like 8GB"
+[[ $CLAUDE_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] ||
+    die "CLAUDE_USER must be a lowercase Linux user name"
+[[ $CLAUDE_USER != root ]] || die "CLAUDE_USER must not be root"
+[[ $CLAUDE_USER != "$ADMIN_USER" ]] || die "CLAUDE_USER and ADMIN_USER must differ"
+[[ $CLAUDE_CODE_CHANNEL == stable || $CLAUDE_CODE_CHANNEL == latest ]] ||
+    die "CLAUDE_CODE_CHANNEL must be stable or latest"
+[[ $GUEST_NAME =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] ||
+    die "GUEST_NAME is not a valid host name"
+[[ $GUEST_IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "GUEST_IMAGE_SIZE must look like 32GB"
+# Debian package names, separated by one space. A name does not start with a
+# hyphen, so it cannot be an option of apt-get.
+[[ -z $GUEST_EXTRA_PACKAGES || $GUEST_EXTRA_PACKAGES =~ ^[a-z0-9][a-z0-9.+-]*( [a-z0-9][a-z0-9.+-]*)*$ ]] ||
+    die "GUEST_EXTRA_PACKAGES must be Debian package names, separated by one space"
 # The recipe puts this value in a YAML file, and debos reads {{ }} as template
 # syntax. Kernel options do not need these characters.
 case $KERNEL_CMDLINE_EXTRA in
@@ -118,16 +139,32 @@ build_installer() {
         "$script_dir/installer.yaml"
 }
 
+build_guest() {
+    debos --artifactdir="$build_dir" \
+        -t "admin_user:$ADMIN_USER" \
+        -t "claude_user:$CLAUDE_USER" \
+        -t "admin_ssh_key:$admin_ssh_key" \
+        -t "sudo_mode:$SUDO_MODE" \
+        -t "guest_name:$GUEST_NAME" \
+        -t "guest_image_size:$GUEST_IMAGE_SIZE" \
+        -t "guest_extra_packages:$GUEST_EXTRA_PACKAGES" \
+        -t "claude_code_channel:$CLAUDE_CODE_CHANNEL" \
+        -t "mirror:$MIRROR" \
+        -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
+        "$script_dir/guest.yaml"
+}
+
 mkdir -p "$build_dir"
 
 if (($# == 0)); then
-    set -- host installer
+    set -- host installer guest
 fi
 
 for target in "$@"; do
     case $target in
         host) build_host ;;
         installer) build_installer ;;
+        guest) build_guest ;;
         *) die "unknown target: $target" ;;
     esac
 done

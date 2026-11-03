@@ -46,3 +46,32 @@ KERNEL_CMDLINE_EXTRA=
 
 # Debian mirror used for the build.
 MIRROR=http://deb.debian.org/debian/
+
+# The settings below are for the guest image. The guest image has two users:
+# the Claude account and ADMIN_USER. Both use the key of ADMIN_USER. Only
+# ADMIN_USER gets sudo. SUDO_MODE and KERNEL_CMDLINE_EXTRA also apply to it.
+
+# Name of the Claude account. It has no sudo and no password.
+CLAUDE_USER=claude
+
+# Release channel of Claude Code: stable or latest. The stable channel is about
+# one week behind latest and skips releases with major regressions. A new
+# model can need a newer version than stable has. The build downloads the
+# package from the Anthropic apt repository. The daily update job of the guest
+# stays on this channel.
+CLAUDE_CODE_CHANNEL=stable
+
+# Host name of the guest.
+GUEST_NAME=quarry-guest
+
+# Size of the base image of the guest. It holds the operating system and
+# nothing else. The workspace, the downloads, and the build output of the
+# projects go on the data disk, which you create with the guest. The image file
+# is sparse, so a larger value costs no disk space.
+GUEST_IMAGE_SIZE=32GB
+
+# Debian packages for the needs of one project, separated by spaces. The image
+# already has the Yocto build packages. Leave the value empty for none. A
+# package that an administrator installs in a running guest is gone after an
+# overlay reset, so a package that every session needs belongs here.
+GUEST_EXTRA_PACKAGES=

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Primary use of Claude Code: general embedded development, including but not limited to the Yocto Project, and tests on real boards.",
+      "Host containment: Claude Code runs as an unprivileged user in a disposable virtual machine. The machine has no sudo, no git credentials, and no cloud credentials. The only credential in it is the login of Claude Code itself. The firewall of the host blocks the local network, any tailnet, and the host. The internet is open, because builds fetch source code from many hosts.",
+      "Source control: Claude commits to local repositories in the workspace. Claude does not push. The owner fetches the commits from this machine, reviews them, and pushes them.",
+      "Network posture: Fetching source code from public hosts is expected, for example GitHub and kernel.org. Sending workspace data to a board that the owner connected to this machine is expected, for example images, files, and test data. Sending workspace data to any other host is not expected.",
+      "Hardware: The machine may have USB serial adapters, SD card multiplexers, and development boards that the owner connects. Writing an image to an SD card on a multiplexer and power-cycling a board are normal tasks."
+    ]
+  },
+  "allowManagedPermissionRulesOnly": true,
+  "allowManagedHooksOnly": true,
+  "strictPluginOnlyCustomization": true,
+  "disableSideloadFlags": true,
+  "strictKnownMarketplaces": [],
+  "syncClaudeAiPlugins": false,
+  "syncClaudeAiSkills": false,
+  "disableClaudeAiConnectors": true,
+  "forceLoginMethod": "claudeai"
+}
