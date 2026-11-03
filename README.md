@@ -87,8 +87,9 @@ This project is in an early stage. Nothing has run on a real host yet.
 | Host baseline image | Builds. It passes the virtual machine tests in `test/` |
 | USB installer | Builds. It writes the host image in the virtual machine tests in `test/` |
 | Discovery script | Written. `host/discover.sh` only reads |
-| Runbook, guest image | Not written |
-| Passthrough, firewall, time limit, Claude Code setup | Design only. Nothing is tested |
+| Guest image | Recipe and virtual machine tests written. Not built and not tested yet |
+| Runbook | Not written |
+| Passthrough, firewall, time limit | Design only. Nothing is tested |
 
 The runbook is written one step at a time. A person runs each step on a real
 host. The runbook marks a step as verified only after that run.
@@ -142,19 +143,25 @@ them out, and it stops with an error if a value is missing. Then run:
 image/build.sh
 ```
 
-The script builds the host image and then the USB installer. It writes
-`image/build/host.img`, `host.img.zst`, and `host.bmap` for the host image, and
-`image/build/installer.img` and `installer.bmap` for the installer. To build only
-the host image, run `image/build.sh host`. The root account is locked, and
-password login is off, so the SSH key is the only way in.
+The script builds the host image, the USB installer, and the guest image. It
+writes `image/build/host.img`, `host.img.zst`, and `host.bmap` for the host
+image, `image/build/installer.img` and `installer.bmap` for the installer, and
+`image/build/guest.img` for the guest. To build one image, name it, for example
+`image/build.sh host` or `image/build.sh guest`. The guest build downloads
+Claude Code from `downloads.claude.ai`. The root account is locked, and password
+login is off, so the SSH key is the only way in. The guest has a second user for
+Claude, without sudo (`CLAUDE_USER`, see `image/build.conf.example`).
 
 ### Test the images
 
 The tests in `test/` boot the host image in QEMU and check the disk layout, the
 network, the access control, and the first-boot identity. They also boot the
 installer, write the host image to an empty virtual disk, and boot that disk.
+They also boot the guest image with a data disk, and check the two accounts, the
+SSH settings, the configuration directory of Claude Code, and the managed files.
 `test/README.md` has the exact steps. The checks that only a real host can answer
-are in `test/manual/real-host.md`.
+are in `test/manual/real-host.md`, and the checks that need a login to Claude
+Code are in `test/manual/real-guest.md`.
 
 ### Read the facts of a host
 

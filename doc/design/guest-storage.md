@@ -10,10 +10,15 @@ work and the login. All points on this page are design intent. None is tested
 - **Host storage.** The images live on the XFS VM storage partition of the host
   (see `host-baseline.md`). The virtual size of each disk is a hard limit. A
   sparse qcow2 file cannot grow past it.
-- **Base image.** Build it with debos from the x86_64 UEFI recipe. It needs a
-  partition table, a UEFI boot loader (OVMF on the host), a kernel, and the
-  packages for Yocto, tmux, dnsmasq, and nfs-kernel-server. These changes apply
-  to the guest:
+- **Base image.** Build it on the build machine with `image/guest.yaml` (see
+  `image/build.sh`), and copy the file to the VM storage of the host. It holds
+  the operating system only: a partition table, a UEFI boot loader (OVMF on the
+  host), a kernel, the Yocto build packages, tmux, and Claude Code. The
+  build variable `GUEST_EXTRA_PACKAGES` adds the packages of one project.
+  `dnsmasq` and `nfs-kernel-server` wait for the work on the boards (see
+  `hil-services.md`). The size of the image is for the system only (default 32
+  GB, sparse). The Yocto trees are on the data disk. These changes apply to the
+  guest:
   - Use the suite `trixie` with the security and updates repositories.
   - Remove `avahi-daemon` and `ntp`. Add `chrony` and `qemu-guest-agent`.
   - Replace the root password with two non-root users that have an SSH key: the

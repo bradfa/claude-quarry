@@ -169,7 +169,11 @@ would otherwise stay after every reset. The files are in the image:
 | --- | --- |
 | `/etc/claude-code/managed-settings.json` | The settings below. They rank above user, project, and local settings, and above `--settings`. |
 | `/etc/claude-code/CLAUDE.md` | The guidance for the guest. A user cannot exclude this file. |
-| `/opt/claude-marketplace/` | The marketplace with the plugins of the owner. It is the only source of skills, agents, hooks, and MCP servers. |
+
+The image has no marketplace yet, because the owner has no plugin yet. Then no
+skill, agent, hook, or MCP server loads at all. When the owner has a plugin, it
+goes in a root-owned directory (planned: `/opt/claude-marketplace/`) that is
+the only allowed marketplace source (see below).
 
 Keys of the managed settings:
 
@@ -180,10 +184,11 @@ Keys of the managed settings:
   do not load from the user or project files. This includes the files in the
   repositories that Claude works in. Only plugins load. The owner accepts this.
 - `allowManagedHooksOnly: true` and `disableSideloadFlags: true`.
-- `strictKnownMarketplaces` with one `directory` entry for
-  `/opt/claude-marketplace`, `extraKnownMarketplaces` with the same directory,
-  and `enabledPlugins` with the plugins of the owner. Plugins from a marketplace
-  that has a local path load from that directory, not from a copy [Q10].
+- `strictKnownMarketplaces: []`. This allows no marketplace source, not even
+  the official one. When the owner has a plugin, the list gets one `directory`
+  entry, and `extraKnownMarketplaces` and `enabledPlugins` name the marketplace
+  and the plugin. Plugins from a marketplace that has a local path load from
+  that directory, not from a copy [Q10].
 - `syncClaudeAiPlugins: false`, `syncClaudeAiSkills: false`, and
   `disableClaudeAiConnectors: true`. The login is a claude.ai login, so the
   account of the owner could bring its connectors and synced items into the
@@ -208,10 +213,10 @@ A shell script runs as root at guest boot and on demand. The admin account
 starts it with `sudo`, because the Claude account must not be able to change the
 files that it writes. It does these things:
 
-- It copies the managed settings, the managed `CLAUDE.md`, and the marketplace
-  from the shared directory of the host over the files in `/etc/claude-code` and
-  `/opt/claude-marketplace`. The image has a first copy, so a guest works
-  without the shared directory.
+- It copies the managed settings and the managed `CLAUDE.md` (and later the
+  marketplace) from the shared directory of the host over the files in
+  `/etc/claude-code` (and `/opt/claude-marketplace`). The image has a first
+  copy, so a guest works without the shared directory.
 - It does not touch `/data/claude-config`. The login and the session data stay.
 - After a sync, the owner restarts or resumes the Claude session so that changes
   of `CLAUDE.md` apply [A22].
@@ -221,22 +226,24 @@ guest has SSH.
 
 ## Tests
 
-These are checks for the guest image. The image does not exist yet.
+`test/test_guest_image.py` checks these points in a virtual machine, with no
+login:
 
 - `ssh claude@guest 'echo $CLAUDE_CONFIG_DIR'`, a login shell, and a tmux
-  window show `/data/claude-config`.
-- After `claude auth status` and a local `claude plugin marketplace add` and
-  `claude plugin install`, the files are in `/data/claude-config`, and the home
-  directory has no `.claude` and no `.claude.json`.
-- After an overlay reset and a reboot, these files are still there.
+  window show `/data/claude-config`, and `claude auth status` names that
+  directory.
+- After `claude auth status`, the file `.claude.json` is in
+  `/data/claude-config`, and the home directory has no `.claude*`.
+- After a reboot and after an overlay reset, the files on the data disk are
+  still there, and the home directory is empty again.
 - `/data/claude-config` is owned by the Claude account with mode 0700.
-- The Claude account cannot write `/etc/claude-code` or `/opt/claude-marketplace`.
-- `claude doctor` reports no error for the managed settings.
-- A fake `settings.json` in the config directory with a hook, and a skill in a
-  repository, do not load. A plugin from `/opt/claude-marketplace` does.
-- With the owner logged in: `/status` names the managed file in `Setting
-  sources` [A35], and the mode and the content of `.credentials.json` match the
-  documentation.
+- The Claude account cannot write `/etc/claude-code`.
+- `claude plugin marketplace add` of a local directory fails with a policy
+  message. This shows that the managed settings apply.
+
+`test/manual/real-guest.md` has the checks that need a login: the line
+`Setting sources` in `/status` [A35], a hook or a skill that must not load, and
+the mode of `.credentials.json`.
 
 ## Session
 

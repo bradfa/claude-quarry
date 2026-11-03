@@ -151,10 +151,9 @@ not decided yet.
 
 ## Tests
 
-These are checks for the guest image. The image does not exist yet.
+`test/test_guest_image.py` checks these points in a virtual machine.
 
-- The Claude account cannot write `/etc/claude-code` or `/opt/claude-marketplace`
-  (see `claude-code.md`).
+- The Claude account cannot write `/etc/claude-code` (see `claude-code.md`).
 - The Claude account is not in `sudo` or `disk`, and `sudo -l` shows nothing.
 - `sshd -T -C user=claude` shows `allowagentforwarding no`, and the output for
   the admin account shows `yes`.
