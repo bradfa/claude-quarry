@@ -87,7 +87,7 @@ This project is in an early stage. Nothing has run on a real host yet.
 | Host baseline image | Builds. It passes the virtual machine tests in `test/` |
 | USB installer | Builds. It writes the host image in the virtual machine tests in `test/` |
 | Discovery script | Written. `host/discover.sh` only reads |
-| Guest image | Recipe and virtual machine tests written. Not built and not tested yet |
+| Guest image | Builds. It passes the virtual machine tests in `test/`. The checks that need a Claude login are still open (`test/manual/real-guest.md`) |
 | Runbook | Not written |
 | Passthrough, firewall, time limit | Design only. Nothing is tested |
 
