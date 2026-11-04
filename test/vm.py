@@ -221,4 +221,7 @@ class Vm:
         self.wait_for_ssh(not_boot_id=boot_id)
 
     def serial_text(self):
+        # QEMU makes the file a moment after it starts.
+        if not self.serial_log.exists():
+            return ""
         return self.serial_log.read_text(errors="replace")

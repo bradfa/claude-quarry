@@ -289,7 +289,7 @@ def test_5_03_login_session_sets_the_variable(auth_status):
     ("login shell", "bash -lc 'echo $CLAUDE_CONFIG_DIR'"),
     ("tmux", "rm -f /tmp/tmux-var; tmux new-session -d -s t 'echo $CLAUDE_CONFIG_DIR > /tmp/tmux-var'; "
              "for i in 1 2 3 4 5 6 7 8 9 10; do [ -s /tmp/tmux-var ] && break; sleep 1; done; "
-             "cat /tmp/tmux-var; tmux kill-server"),
+             "cat /tmp/tmux-var"),
 ])
 def test_5_04_variable_reaches_every_kind_of_session(guest_a, settings, name, command):
     assert check_as_claude(guest_a, settings, command).stdout.strip() == CONFIG_DIR, name
