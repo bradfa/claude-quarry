@@ -82,5 +82,7 @@ bmaptool copy --bmap "$bmap" "$image" "$disk"
 sync
 udevadm settle
 echo
-echo "Done. Remove the USB stick, then reboot. The first boot adds the swap"
-echo "and VM storage partitions in the free space of the disk."
+echo "Done. Do not remove the USB stick yet. The installer runs from it."
+echo "Run poweroff. When the machine is off, remove the stick and switch the"
+echo "machine on. The first boot adds the swap and VM storage partitions in"
+echo "the free space of the disk."

@@ -29,7 +29,9 @@ stick.
 
 ## 2. Boot the host
 
-Remove the USB stick, and reboot.
+Run `poweroff` in the installer. When the machine is off, remove the USB
+stick, and switch the machine on. The installer runs from the stick, so do not
+remove it before the machine is off.
 
 | # | Check | Expected result | Open point |
 | --- | --- | --- | --- |
