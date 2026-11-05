@@ -1,0 +1,12 @@
+# Keep the login prompt of every console current with the addresses of the
+# network cards.
+[Unit]
+Description=Show the network addresses at the login prompt
+After=systemd-networkd.service
+
+[Service]
+ExecStart=/usr/local/sbin/quarry-login-banner
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -132,7 +132,7 @@ def test_4_08_chrony_has_a_source(vm_a):
     pytest.fail(f"no synchronized NTP source after 5 minutes:\n{out}")
 
 
-@pytest.mark.parametrize("unit", ["ssh", "chrony", "systemd-networkd", "systemd-resolved"])
+@pytest.mark.parametrize("unit", ["ssh", "chrony", "systemd-networkd", "systemd-resolved", "quarry-login-banner"])
 def test_4_09_service_active(vm_a, unit):
     assert vm_a.check(f"systemctl is-active {unit}").stdout.strip() == "active"
 
@@ -178,6 +178,42 @@ def test_4_17_updates_are_on_and_reboot_is_off(vm_a):
     # Debian ships the line commented out, and the default is no reboot. So
     # the check is that nothing turns the reboot on.
     assert not re.search(r'^Unattended-Upgrade::Automatic-Reboot "(true|1|yes)";', config, re.MULTILINE)
+
+
+def test_4_18_login_banner_shows_addresses_and_ssh_command(vm_a, settings):
+    assert vm_a.check("systemctl is-active quarry-login-banner").stdout.strip() == "active"
+    banner = vm_a.check("cat /run/issue.d/50-quarry-network.issue").stdout
+    link = vm_a.check("ip -o route show default").stdout.split()[4]
+    address = vm_a.check(f"ip -o -4 addr show dev {link} scope global").stdout.split()[3]
+    assert f"{link} (up): " in banner
+    assert address in banner
+    assert f"ssh -A {settings.admin_user}@{settings.host_name}.local" in banner
+    assert f"ssh -A {settings.admin_user}@{address.split('/')[0]}" in banner
+
+
+def test_4_19_banner_follows_an_address_change(vm_a):
+    # The service sees the change from the kernel, so the banner must change
+    # within a few seconds. The address is from the documentation range
+    # (RFC 5737), so it never reaches a real network.
+    link = vm_a.check("ip -o route show default").stdout.split()[4]
+    vm_a.sudo(f"ip addr add 192.0.2.77/32 dev {link}")
+    try:
+        deadline = time.monotonic() + 20
+        banner = ""
+        while time.monotonic() < deadline and "192.0.2.77" not in banner:
+            time.sleep(1)
+            banner = vm_a.check("cat /run/issue.d/50-quarry-network.issue").stdout
+        assert "192.0.2.77/32" in banner, banner
+    finally:
+        vm_a.sudo(f"ip addr del 192.0.2.77/32 dev {link}")
+
+
+def test_4_20_mdns_is_on(vm_a):
+    # The slirp network of the test cannot carry multicast, so the test checks
+    # the settings and the listening socket, not an answer to a query.
+    link = vm_a.check("ip -o route show default").stdout.split()[4]
+    assert vm_a.check(f"resolvectl mdns {link}").stdout.strip().endswith(": yes")
+    assert ":5353" in vm_a.check("ss -uln").stdout
 
 
 # Step 5: access control

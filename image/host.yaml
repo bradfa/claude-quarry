@@ -155,7 +155,7 @@ actions:
     chroot: true
     command: |
       set -e
-      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service
+      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service quarry-login-banner.service
       systemctl mask systemd-firstboot.service
 
   - action: run

@@ -1,0 +1,53 @@
+#!/bin/bash
+# Show the address of every network card and the ssh command at the login
+# prompt of every console (monitor or serial), so a person at a console can
+# find the host without a DHCP lease list. agetty can show only one interface
+# with its \4 escape, so this script writes a file that agetty reads from
+# /run/issue.d. It runs at boot and again on each address or link change.
+set -euo pipefail
+
+out=/run/issue.d/50-quarry-network.issue
+
+write_banner() {
+    local dev name state all addrs addr user
+    local -a ips=()
+    # The image has no user name. The first member of the sudo group is the
+    # admin user that the build made.
+    user=$(getent group sudo | cut -d: -f4 | cut -d, -f1)
+    # One call for all cards. A USB card can leave while this runs, and a call
+    # for one card then fails.
+    all=$(ip -o addr show scope global)
+    {
+        echo "Network cards of $(hostname):"
+        for dev in /sys/class/net/*; do
+            # Only a card has a device link. This skips lo, bridges, and tunnels.
+            [[ -e $dev/device ]] || continue
+            name=${dev##*/}
+            read -r state < "$dev/operstate" || continue
+            addrs=$(awk -v n="$name" '$2 == n {print $4}' <<< "$all" | paste -sd' ')
+            echo "  $name ($state): ${addrs:-no address}"
+            while read -r addr; do
+                ips+=("${addr%/*}")
+            done < <(awk -v n="$name" '$2 == n && $3 == "inet" {print $4}' <<< "$all")
+        done
+        echo
+        echo "Log in from another computer. -A forwards your SSH agent, and sudo needs it:"
+        echo "  ssh -A ${user:-USER}@$(hostname).local"
+        for addr in "${ips[@]}"; do
+            echo "  ssh -A ${user:-USER}@$addr"
+        done
+        echo
+    } > "$out.tmp"
+    mv "$out.tmp" "$out"
+    # No agetty runs this early in the boot. It then reads the file when it
+    # starts, so the failure is not an error.
+    /usr/sbin/agetty --reload || true
+}
+
+mkdir -p "${out%/*}"
+write_banner
+ip monitor address link | while read -r _; do
+    write_banner
+done
+# The monitor must not end. Make systemd restart this service.
+exit 1

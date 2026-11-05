@@ -8,6 +8,7 @@ Name=en*
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=yes
+MulticastDNS=yes
 
 # A second wired NIC must not take the default route from the first one.
 [DHCPv4]
