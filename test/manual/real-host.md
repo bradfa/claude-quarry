@@ -36,7 +36,10 @@ remove it before the machine is off.
 | # | Check | Expected result | Open point |
 | --- | --- | --- | --- |
 | 2.1 | The firmware boots the disk without a boot entry that you made | The boot menu, then the kernel, then a login prompt | Q6 |
-| 2.2 | SSH login with `ssh -A` from the daily machine | It works within 1 minute | |
+| 2.2 | SSH login with `ssh -A` from the daily machine, with the command that the login prompt shows (the IP address form) | It works within 1 minute | |
+| 2.7 | The login prompt on the monitor | It lists every network card with its state and address, and the `ssh -A` commands with the admin user, the `.local` name, and each IPv4 address | |
+| 2.8 | Plug in or unplug the cable of a card, and watch the monitor | The list changes within a few seconds, without a key press | A36 |
+| 2.9 | SSH login with the `.local` name from the daily machine | It works. The daily machine needs an mDNS client, for example `systemd-resolved` with `MulticastDNS=yes`, or `avahi-daemon` | A37 |
 | 2.3 | `lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS` | 4 partitions: ESP, root, `swap`, and `vmdata` (XFS) on the rest of the disk | |
 | 2.4 | `sudo true` in the session with `-A` | Exit code 0, with the touch or PIN that the Yubikey needs | |
 | 2.5 | `systemctl --failed` | `0 loaded units listed` | |

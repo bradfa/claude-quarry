@@ -157,6 +157,19 @@ The reference firmware, from commands that the owner ran on 2026-11-02:
 - `systemd-networkd-wait-online` waits for any one link, not for all links.
 - `systemd-resolved` provides DNS, and `/etc/resolv.conf` links to its stub
   file.
+- `systemd-resolved` and `systemd-networkd` both have `MulticastDNS=yes`. The
+  host then answers mDNS queries and shows as `<host name>.local` on the LAN.
+  It listens on UDP port 5353 on the LAN. The image has no DHCP lease list to
+  look at, and not every user can read one. The daily machine needs an mDNS
+  client to resolve the name [A37].
+- `quarry-login-banner.service` writes `/run/issue.d/50-quarry-network.issue`
+  at boot and on each address or link change, and then runs `agetty --reload`.
+  The login prompt of every console, the monitor and a serial line, then lists
+  each network card with its state and addresses. It also shows the `ssh -A`
+  command for the admin user, with the `.local` name and each IPv4 address. The
+  `\4` escape of `agetty` shows only the first interface, so a generated file
+  is needed. A card that has no device link (a bridge or a tunnel) is not
+  listed [A36].
 - The recipe purges `ifupdown`, which the base system installs. Two network
   managers must not run together.
 - `chrony` keeps the time. It steps the clock when the offset is large during
