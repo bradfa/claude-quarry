@@ -61,6 +61,11 @@ in the firmware menu, and leave the keys as they are. If the host does not boot,
 turn Secure Boot off again. The virtual machine tests already show that the
 firmware chain works, so a failure here points to the real firmware.
 
+A firmware can have no keys at all (Setup Mode), or it can have keys without the
+Microsoft CA. Then the host or the installer does not boot with Secure Boot on.
+Do checks 4.9 and 4.10 first. They fill the key database (see "Firmware with no
+keys" in `doc/design/host-baseline.md`).
+
 | # | Check | Expected result | Open point |
 | --- | --- | --- | --- |
 | 4.1 | Boot the installer stick with Secure Boot on | The banner appears. The firmware can reboot once on the first boot. The virtual machine did not | A33 |
@@ -71,3 +76,6 @@ firmware chain works, so a failure here points to the real firmware.
 | 4.6 | Install `fwupd` by hand, then run `fwupdmgr get-devices` and `fwupdmgr get-updates` | The tool lists a `db` update for the Microsoft UEFI CA 2023, or it says that none is available | A34 |
 | 4.7 | After the update of check 4.6 (if one exists), run `mokutil --db` and reboot | `Microsoft UEFI CA 2023` is in the list, and the host still boots | A34 |
 | 4.8 | After the cards are in the host, bind a card to `vfio-pci`, start a guest with it, and read `dmesg` | The guest starts, and `dmesg` shows no lockdown message about the card | A32 |
+| 4.9 | `mokutil --sb-state`, on a host whose firmware has the Custom Keys setting and no keys | `SecureBoot disabled` and `Platform is in Setup Mode` | |
+| 4.10 | `sudo quarry-enroll-secure-boot-keys`, then reboot, then `mokutil --sb-state`, `mokutil --db`, and `bootctl status` | The script ends with `Done.`. After the reboot: `SecureBoot enabled`, both Microsoft UEFI CAs in `db`, and `Secure Boot: enabled (user)` | A38 |
+| 4.11 | Write the installer stick again (or keep the old one), and boot it with Secure Boot on | The banner appears, and there is no red "Secure Boot Violation" box | A38 |

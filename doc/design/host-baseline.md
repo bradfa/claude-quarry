@@ -123,6 +123,38 @@ Boot is off.
   kernel with `kexec`. The image has no module that Debian does not sign. It is
   not verified that lockdown allows libvirt and VFIO passthrough [A32].
 
+#### Firmware with no keys
+
+A firmware can have no Microsoft key in its database. On the HP EliteDesk of the
+owner, with the latest BIOS from HP (American Megatrends 4.654, UEFI 2.31), the
+setting "Key Ownership" has two values.
+"HP Keys" rejects the `shim` of the installer (a red "Secure Boot Violation"
+box). "Custom Keys" leaves the firmware in Setup Mode with an empty database
+(`mokutil --sb-state` shows `SecureBoot disabled` and `Platform is in Setup
+Mode`), and the BIOS has no menu to import a key. The firmware then boots every
+file, so Secure Boot does not enforce anything. The fix is a script of the host
+image.
+
+- Run `sudo quarry-enroll-secure-boot-keys` on the host while the firmware is in
+  Setup Mode, and then reboot. The script stops with an error in any other
+  state.
+- It writes the Microsoft UEFI CA 2011 and 2023 to `db`, and the Microsoft KEK
+  CA 2011 and KEK 2K CA 2023 to `KEK`. The KEK lets `fwupd` apply later updates
+  of `db` [A34]. It makes a new Platform Key (PK), writes it last (this ends
+  Setup Mode), and deletes the private key. No other signing key exists on the
+  host. To change the keys later, put the firmware in Setup Mode again.
+- The certificates are in `/usr/local/share/quarry/secureboot`, and the script
+  checks the SHA-256 fingerprint of each one before it writes anything. Each
+  fingerprint also matches a certificate in a Debian package (see the script).
+  The script adds no Windows key, so the host cannot start Windows.
+- The virtual machine tests (`test/test_enroll_keys.py`) run the script on OVMF
+  in Setup Mode, reboot, and check that Secure Boot is on and that the host
+  still boots. The real firmware can differ in how it accepts the variable
+  writes [A38].
+- The installer has the same problem as the host. With a firmware in Setup Mode,
+  the installer starts. After the keys are in, the installer stick also passes
+  the check, because it has the same Microsoft-signed `shim`.
+
 What Secure Boot does not verify: the initrd, the kernel command line (in
 `/boot/efi/loader/entries`), and the root file system. An attacker who has root
 on the host can still change them and keep a foothold. Only a verified root file

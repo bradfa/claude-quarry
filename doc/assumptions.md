@@ -50,6 +50,7 @@ The git history keeps the deleted rows.
 | A35 | The managed settings file in the guest applies, because the admin console of the Teams organization delivers no managed settings. By default Claude Code uses only the highest-ranked managed source, and it ignores the file without a warning if the console delivers any policy key. On 2026-11-02 the `/status` of the owner on the daily machine named no managed source. | claude-code | Log in to the guest. Run `/status`. The line `Setting sources` must name the managed file. Repeat after any change in the Teams organization. |
 | A36 | `agetty --reload` makes a login prompt that already waits show the new banner file. | host-baseline | On the real host, change a cable at the monitor and watch the login prompt (`test/manual/real-host.md`, check 2.8). |
 | A37 | The `.local` name of the host resolves on the LAN of the owner, and the router does not drop multicast. | host-baseline | Run `ssh -A <user>@<host name>.local` from the daily machine (`test/manual/real-host.md`, check 2.9). |
+| A38 | `efi-updatevar` can write `db`, `KEK`, and then `PK` on the AMI firmware of the HP EliteDesk in Setup Mode, and the host then boots with Secure Boot on. The virtual machine tests show it with OVMF only. | host-baseline | Run `sudo quarry-enroll-secure-boot-keys` on the real host (`test/manual/real-host.md`, section 4). Reboot, and run `mokutil --sb-state`. |
 
 ## Open questions
 
