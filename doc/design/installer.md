@@ -68,6 +68,16 @@ held secrets.
 - The installer boots in QEMU, and `bmaptool` reads the `.zst` image. The test
   suite checks this.
 
+## The shim
+
+The installer has the same Debian shim as the host. With the build setting
+`SHIM_REMOVE_SIGNATURE` (`2011` or `2023`), the recipe removes one of the two
+Microsoft signatures from the shim in the ESP, because some firmware rejects a
+file with two (see `host-baseline.md`). The installer never updates its
+packages, so it has no apt hook. With `2011`, the firmware needs the 2023 CA in
+its `db`. A PC without it shows a red box, so turn Secure Boot off to install,
+update `db` on the host with `fwupdmgr update`, and turn Secure Boot on.
+
 ## Not verified
 
 - The real firmware boots the installer through the removable-media path in the

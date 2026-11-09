@@ -123,24 +123,74 @@ Boot is off.
   kernel with `kexec`. The image has no module that Debian does not sign. It is
   not verified that lockdown allows libvirt and VFIO passthrough [A32].
 
+#### A shim with two signatures
+
+The Debian `shim` has two Microsoft signatures: one from the Microsoft UEFI CA
+2011 and one from the 2023 CA (`shim-signed` 1.48 and later). They sign the same
+bytes. The HP EliteDesk of the owner (American Megatrends 4.654, UEFI 2.31,
+the latest BIOS from HP) shows a red "Secure Boot Violation: Invalid signature
+detected" box for this file, right after the power-on screen, before any boot
+menu. It does so with the factory keys of HP, with keys that the owner
+enrolled, and after `fwupd` added the 2023 CA to `db`. These tests (2026-11-09)
+rule out the other causes:
+
+- The same shim with only the 2011 signature boots with the factory keys. The
+  same shim with only the 2023 signature boots after the `db` update.
+- The hash of the shim is not in the `dbx`, also not in the new `dbx` of
+  2026-04-02.
+- A BIOS clock before the end of the certificate dates (2026-05-01) changed
+  nothing.
+- Both signatures use SHA-256 and 2048-bit RSA keys.
+
+The tests cannot tell the number of signatures from the size of the signature
+table (19 KB for two). The firmware rejects a file with two signatures, and
+the cause inside the firmware is not known.
+
+- The build setting `SHIM_REMOVE_SIGNATURE` has the values `none` (the default,
+  the shim as Debian ships it), `2011`, and `2023`. It removes that signature
+  from the shim in the ESP of the host image and of the installer. The script
+  `quarry-shim-signature` does it with `sbattach` (package `sbsigntool`). It
+  works on a copy, checks the result, and never removes the only signature of a
+  file. The build stops when the shim has no signature to remove.
+- The shim package puts the two-signature file back in the ESP at each update,
+  and `unattended-upgrades` runs daily. An `apt` hook
+  (`/etc/apt/apt.conf.d/60quarry-shim-signature`) runs the script after every
+  package change. It reads the choice from `/etc/quarry/shim-remove-signature`.
+  Without the hook, the next reboot after a shim update shows the red box.
+- Removing a signature does not weaken Secure Boot. The other signature covers
+  the same bytes, and the firmware checks it against its `db`.
+- `2011` removes the 2011 signature, so the firmware needs the 2023 CA in `db`.
+  A new PC has it. An older one can get it with `fwupdmgr update`, and the host
+  image has `fwupd`. On a PC without it, the installer shows the red box. Turn
+  Secure Boot off for the installation, update `db` on the host, and turn it on.
+  `2023` removes the 2023 signature, so the firmware needs the 2011 CA, which
+  the factory keys of most PCs have.
+- A later shim package can have only one signature. If it is not the one that
+  the choice keeps, the build stops, and on a running host the script writes a
+  warning and the next reboot can show the red box [A39].
+- The virtual machine tests use OVMF, which accepts both signatures, so they do
+  not show this problem. They check that the ESP has the expected signatures
+  (host tests 2.04 and 4.21 to 4.23, installer test 3.00a). With `2011`, the
+  tests add the 2023 CA to a copy of the OVMF variable store.
+
 #### Firmware with no keys
 
 A firmware can have no Microsoft key in its database. On the HP EliteDesk of the
-owner, with the latest BIOS from HP (American Megatrends 4.654, UEFI 2.31), the
-setting "Key Ownership" has two values.
-"HP Keys" rejects the `shim` of the installer (a red "Secure Boot Violation"
-box). "Custom Keys" leaves the firmware in Setup Mode with an empty database
-(`mokutil --sb-state` shows `SecureBoot disabled` and `Platform is in Setup
-Mode`), and the BIOS has no menu to import a key. The firmware then boots every
-file, so Secure Boot does not enforce anything. The fix is a script of the host
-image.
+owner, the setting "Key Ownership" has two values. "HP Keys" has the Microsoft
+UEFI CA 2011 in `db` (see the reference firmware below), so a PC like this needs
+no key enrollment. "Custom Keys" leaves the firmware in Setup Mode with an empty
+database (`mokutil --sb-state` shows `SecureBoot disabled` and `Platform is in
+Setup Mode`), and the BIOS has no menu to import a key. The firmware then boots
+every file, so Secure Boot does not enforce anything. A script of the host image
+fills the database for such firmware. Check first that the firmware really has
+no Microsoft CA: the red box can also come from a shim with two signatures.
 
 - Run `sudo quarry-enroll-secure-boot-keys` on the host while the firmware is in
   Setup Mode, and then reboot. The script stops with an error in any other
   state.
 - It writes the Microsoft UEFI CA 2011 and 2023 to `db`, and the Microsoft KEK
   CA 2011 and KEK 2K CA 2023 to `KEK`. The KEK lets `fwupd` apply later updates
-  of `db` [A34]. It makes a new Platform Key (PK), writes it last (this ends
+  of `db`. It makes a new Platform Key (PK), writes it last (this ends
   Setup Mode), and deletes the private key. No other signing key exists on the
   host. To change the keys later, put the firmware in Setup Mode again.
 - The certificates are in `/usr/share/quarry/secureboot`, and the script
@@ -151,9 +201,11 @@ image.
   in Setup Mode, reboot, and check that Secure Boot is on and that the host
   still boots. The real firmware can differ in how it accepts the variable
   writes [A38].
-- The installer has the same problem as the host. With a firmware in Setup Mode,
-  the installer starts. After the keys are in, the installer stick also passes
-  the check, because it has the same Microsoft-signed `shim`.
+- The installer has the same `shim` as the host, so it needs the same keys in
+  the firmware, and the setting `SHIM_REMOVE_SIGNATURE` applies to both.
+- The script was not the answer on the HP EliteDesk of the owner, because its
+  factory `db` already had the 2011 CA. It stays as a tool for firmware that
+  has no Microsoft CA.
 
 What Secure Boot does not verify: the initrd, the kernel command line (in
 `/boot/efi/loader/entries`), and the root file system. An attacker who has root
@@ -173,14 +225,18 @@ The reference firmware, from commands that the owner ran on 2026-11-02:
 | `db` | Microsoft UEFI CA 2011, Microsoft Windows Production PCA 2011, and an HP key |
 | Debian `shim` | Two signatures: one from the UEFI CA 2011 and one from the UEFI CA 2023 |
 
-- The firmware has the 2011 CA, so it accepts the first signature of the `shim`.
-  The 2011 certificates are past their "Not After" date (June 2026). A firmware
-  has no trusted clock, and it should ignore the date. A real boot shows this
-  [A33].
+- The firmware has the 2011 CA, but it rejects the Debian `shim` with two
+  signatures (see A shim with two signatures). It accepts the `shim` with only
+  the 2011 signature. The 2011 certificates are past their "Not After" date
+  (June 2026), and the firmware ignores the date: a BIOS clock before the date
+  made no difference.
+- `fwupdmgr update` (2026-11-09) applied a `db` update and a `dbx` update. The
+  `db` update added the Microsoft UEFI CA 2023 and the Option ROM UEFI CA 2023,
+  and kept the 2011 CAs. The `dbx` went from 20140413 to 20260402 (446 hashes).
+  With the 2023 CA in `db`, the `shim` with only the 2023 signature also boots.
 - A later `shim` can carry only the 2023 signature. The firmware then needs the
-  Microsoft UEFI CA 2023 in its `db`. Microsoft publishes a `db` update that the
-  KEK CA 2011 signs, and `fwupd` can apply it. Do this before the host takes a
-  `shim` with one signature [A34].
+  Microsoft UEFI CA 2023 in its `db`. Run `fwupdmgr update` before the host
+  takes such a `shim`.
 
 ### Network and services
 
@@ -258,14 +314,14 @@ setting.
   [Q6]. With Secure Boot on, this path holds the `shim`, and the `shim` fallback
   makes the boot entry [A33].
 - Lockdown mode allows libvirt and VFIO passthrough [A32].
-- The Microsoft UEFI CA 2023 update works on the reference firmware [A34].
 
 ## Risks
 
 | Risk | Mitigation | Status |
 | --- | --- | --- |
 | Builds are slow on the spinning disk and 15 GiB of RAM | Start small, measure, and add an SSD later | Accepted for now |
-| A `shim` update has only the 2023 signature, and the firmware has no 2023 CA. The host then does not boot after the next reboot. | Add the 2023 CA to the firmware `db` first [A34] | Open |
+| A `shim` update has only the 2023 signature, and the firmware has no 2023 CA. The host then does not boot after the next reboot. | Run `fwupdmgr update` first, to add the 2023 CA to the firmware `db` | Open |
+| A `shim` update drops the signature that `SHIM_REMOVE_SIGNATURE` keeps. The script then removes nothing and the host can show the red box after the next reboot. | The build stops in this case, and the script writes a warning. Read the `shim-signed` changelog before an update [A39] | Open |
 | Secure Boot does not verify the initrd, the command line, and the root file system | Daily updates and fast patches. The USB installer is the recovery | Accepted by the owner |
 
 ## Tests

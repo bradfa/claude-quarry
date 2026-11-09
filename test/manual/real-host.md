@@ -61,10 +61,17 @@ in the firmware menu, and leave the keys as they are. If the host does not boot,
 turn Secure Boot off again. The virtual machine tests already show that the
 firmware chain works, so a failure here points to the real firmware.
 
-A firmware can have no keys at all (Setup Mode), or it can have keys without the
-Microsoft CA. Then the host or the installer does not boot with Secure Boot on.
-Do checks 4.9 and 4.10 first. They fill the key database (see "Firmware with no
-keys" in `doc/design/host-baseline.md`).
+If the host or the installer shows the red "Secure Boot Violation: Invalid
+signature detected" box, there are two causes (see `doc/design/host-baseline.md`):
+
+- The Debian shim has two Microsoft signatures, and the firmware rejects a file
+  with two. This happened on the HP EliteDesk, with the factory keys. Build the
+  images with `SHIM_REMOVE_SIGNATURE=2011` or `2023` (see
+  `image/build.conf.example`), and do checks 4.12 and 4.13.
+- The firmware has no keys (Setup Mode), or it has keys without the Microsoft
+  CA. Do checks 4.9 and 4.10 first. They fill the key database.
+
+Do the check `mokutil --db` first. It tells which of the two causes you have.
 
 | # | Check | Expected result | Open point |
 | --- | --- | --- | --- |
@@ -73,9 +80,11 @@ keys" in `doc/design/host-baseline.md`).
 | 4.3 | `mokutil --sb-state` | `SecureBoot enabled` | |
 | 4.4 | `cat /sys/kernel/security/lockdown` | `[integrity]` is marked | |
 | 4.5 | `bootctl status` | `Secure Boot: enabled (user)`, and the loader is `systemd-boot` | |
-| 4.6 | Install `fwupd` by hand, then run `fwupdmgr get-devices` and `fwupdmgr get-updates` | The tool lists a `db` update for the Microsoft UEFI CA 2023, or it says that none is available | A34 |
-| 4.7 | After the update of check 4.6 (if one exists), run `mokutil --db` and reboot | `Microsoft UEFI CA 2023` is in the list, and the host still boots | A34 |
+| 4.6 | `fwupdmgr get-devices` and `fwupdmgr get-updates` (the image has `fwupd`) | The tool lists a `db` update for the Microsoft UEFI CA 2023 and a `dbx` update, or it says that none is available | |
+| 4.7 | After the update of check 4.6 (if one exists), run `mokutil --db` and reboot | `Microsoft UEFI CA 2023` is in the list, the 2011 CAs are still there, and the host still boots | |
 | 4.8 | After the cards are in the host, bind a card to `vfio-pci`, start a guest with it, and read `dmesg` | The guest starts, and `dmesg` shows no lockdown message about the card | A32 |
 | 4.9 | `mokutil --sb-state`, on a host whose firmware has the Custom Keys setting and no keys | `SecureBoot disabled` and `Platform is in Setup Mode` | |
 | 4.10 | `sudo quarry-enroll-secure-boot-keys`, then reboot, then `mokutil --sb-state`, `mokutil --db`, and `bootctl status` | The script ends with `Done.`. After the reboot: `SecureBoot enabled`, both Microsoft UEFI CAs in `db`, and `Secure Boot: enabled (user)` | A38 |
 | 4.11 | Write the installer stick again (or keep the old one), and boot it with Secure Boot on | The banner appears, and there is no red "Secure Boot Violation" box | A38 |
+| 4.12 | Build the images with `SHIM_REMOVE_SIGNATURE=2011` (or `2023`), write the installer stick, and boot it with Secure Boot on. The `2011` choice needs the 2023 CA in `db` (check 4.7). Then install the host and boot it with Secure Boot on | The installer banner and the host login prompt appear, and there is no red box | |
+| 4.13 | On the host, `sudo sbverify --list /boot/efi/EFI/BOOT/BOOTX64.EFI` and the same for `/boot/efi/EFI/debian/shimx64.efi`. Then `sudo apt-get install --reinstall shim-signed` and run both commands again | One signature in each file, before and after the reinstall. The apt output shows `quarry-shim-signature` when it removed one | A39 |

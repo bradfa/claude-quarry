@@ -152,6 +152,13 @@ Claude Code from `downloads.claude.ai`. The root account is locked, and password
 login is off, so the SSH key is the only way in. The guest has a second user for
 Claude, without sudo (`CLAUDE_USER`, see `image/build.conf.example`).
 
+If a PC shows a red "Secure Boot Violation: Invalid signature detected" box when
+you boot the installer, set `SHIM_REMOVE_SIGNATURE` in `image/build.conf`. Some
+older firmware rejects the Debian shim, which has two Microsoft signatures. The
+setting removes one of them in the installer and in the host image, and the host
+image removes it again after each package update. See `image/build.conf.example`
+and `doc/design/host-baseline.md`.
+
 ### Test the images
 
 The tests in `test/` boot the host image in QEMU and check the disk layout, the
