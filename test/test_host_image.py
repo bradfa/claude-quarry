@@ -239,6 +239,15 @@ def test_5_02_sudo_without_agent_fails(vm_a, sudo_mode_agent):
     assert "password" in result.stderr, result.stderr
 
 
+def test_5_02a_sudo_does_not_cache_the_agent_check(vm_a, sudo_mode_agent):
+    # Both sudo commands run under one shell, so they share the record of the
+    # parent process. With the default 15 minute timestamp, the second command
+    # would pass without the agent. Without a cache, it must fail.
+    result = vm_a.run("sudo true && env -u SSH_AUTH_SOCK sudo true", forward_agent=True)
+    assert result.returncode != 0, "sudo used a cached check after the agent was gone"
+    assert "password" in result.stderr, result.stderr
+
+
 def test_5_03_root_login_refused(vm_a):
     result = vm_a.run("true", user="root")
     assert result.returncode == 255

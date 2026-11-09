@@ -228,7 +228,10 @@ Each host makes its own on the first boot. `first-boot.service` runs
 - Root has no password and cannot log in.
 - The first user has an SSH key and is in the `sudo` group.
 - With `SUDO_MODE=agent` (the default), `sudo` asks the forwarded SSH agent. It
-  fails without an agent.
+  fails without an agent. `timestamp_timeout=0` turns off the `sudo` cache, so
+  every `sudo` command asks the agent. If a guest escape is suspected, the owner
+  closes the agent connection (or locks the Yubikey), and `sudo` stops at once.
+  The default cache of 15 minutes would keep `sudo` working without the agent.
 - With `SUDO_MODE=nopasswd`, the `sudo` group uses `sudo` without a check.
 
 ### Build settings

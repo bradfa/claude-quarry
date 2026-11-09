@@ -138,7 +138,10 @@ actions:
       echo "Adding the pam_ssh_agent_auth line to /etc/pam.d/sudo"
       sed -i '1a auth sufficient pam_ssh_agent_auth.so file=/etc/security/sudo_authorized_keys' /etc/pam.d/sudo
       echo "Writing /etc/sudoers.d/10-quarry-agent"
-      echo 'Defaults env_keep += "SSH_AUTH_SOCK"' > /etc/sudoers.d/10-quarry-agent
+      # timestamp_timeout=0 makes sudo ask the agent for every command. The
+      # default keeps a successful check for 15 minutes. Then closing the agent
+      # connection would not stop sudo at once.
+      printf '%s\n' 'Defaults env_keep += "SSH_AUTH_SOCK"' 'Defaults timestamp_timeout=0' > /etc/sudoers.d/10-quarry-agent
       chmod -v 0440 /etc/sudoers.d/10-quarry-agent
       visudo -cf /etc/sudoers.d/10-quarry-agent
 {{ else }}
