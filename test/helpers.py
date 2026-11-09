@@ -8,6 +8,35 @@ GIB = 2**30
 
 LSBLK_COLUMNS = "NAME,SIZE,FSTYPE,PARTLABEL,PARTTYPE,START,MOUNTPOINTS"
 
+# The two places in the ESP where the shim is. The firmware starts the first
+# one on a new host, and the boot entry that the shim makes uses the second.
+SHIM_PATHS = ("/EFI/BOOT/BOOTX64.EFI", "/EFI/debian/shimx64.efi")
+CA_2011 = "Microsoft Corporation UEFI CA 2011"
+CA_2023 = "Microsoft UEFI CA 2023"
+
+
+def expected_shim_cas(shim_remove_signature):
+    """The CAs that signed the shim in the ESP, for a value of the build
+    setting SHIM_REMOVE_SIGNATURE."""
+    return {"none": sorted([CA_2011, CA_2023]), "2011": [CA_2023], "2023": [CA_2011]}[shim_remove_signature]
+
+
+def signature_cas(listing):
+    """Return the CA of each signature, from the output of sbverify --list.
+    The issuers of a signature follow its "signature N" line."""
+    cas = []
+    in_issuers = False
+    for line in listing.splitlines():
+        if line.startswith("signature "):
+            in_issuers = False
+        elif "image signature issuers:" in line:
+            in_issuers = True
+        elif "image signature certificates:" in line:
+            in_issuers = False
+        elif in_issuers and "CN=" in line:
+            cas.append(line.split("CN=")[-1].strip())
+    return sorted(cas)
+
 
 def lsblk_children(lsblk_json):
     """Return the partitions from the output of lsblk -Jb for one disk."""

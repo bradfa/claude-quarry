@@ -16,6 +16,12 @@ OVMF_VARS = OVMF_DIR / "OVMF_VARS_4M.fd"
 # that a PC ships with: the Microsoft CA that signs the Debian shim.
 OVMF_CODE_SECBOOT = OVMF_DIR / "OVMF_CODE_4M.secboot.fd"
 OVMF_VARS_SECBOOT = OVMF_DIR / "OVMF_VARS_4M.ms.fd"
+# That store has the Microsoft UEFI CA 2011 only. A shim without the 2011
+# signature needs the 2023 CA too. The certificate is the one that the host
+# image uses to enroll keys.
+MICROSOFT_GUID = "77fa9abd-0359-4d32-bd60-28f4e78f784b"
+CA_2023 = (Path(__file__).resolve().parents[1]
+           / "image/overlays/host/usr/share/quarry/secureboot/db-microsoft-uefi-ca-2023.pem")
 
 # Without /dev/kvm, QEMU emulates the CPU. That works but is slow, so the
 # boot timeout is much longer. QUARRY_TEST_BOOT_TIMEOUT overrides it.
@@ -82,10 +88,20 @@ def firmware_args(vars_file, secure_boot=True, empty_keys=False):
             "-drive", f"if=pflash,format=raw,file={vars_file}"]
 
 
+def use_secboot_vars_with_2023_ca(target):
+    """Make a copy of the Secure Boot variable store that also trusts the
+    Microsoft UEFI CA 2023, and use it for every machine that starts later."""
+    global OVMF_VARS_SECBOOT
+    subprocess.run(["virt-fw-vars", "--input", str(OVMF_VARS_SECBOOT), "--output", str(target),
+                    "--add-db", MICROSOFT_GUID, str(CA_2023)],
+                   check=True, capture_output=True)
+    OVMF_VARS_SECBOOT = target
+
+
 def check_tools():
     """Return the name of the first missing prerequisite, or None."""
     for tool in ("qemu-system-x86_64", "qemu-img", "qemu-io", "mdir", "mtype", "mcopy",
-                 "ssh", "ssh-agent", "ssh-add"):
+                 "ssh", "ssh-agent", "ssh-add", "sbverify"):
         if shutil.which(tool) is None:
             return tool
     for firmware in (OVMF_CODE, OVMF_VARS, OVMF_CODE_SECBOOT, OVMF_VARS_SECBOOT):

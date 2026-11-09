@@ -14,7 +14,7 @@ BUILD_DIR = REPO / "image" / "build"
 LOG_DIR = BUILD_DIR / "test-logs"
 
 NAMES = ("ADMIN_USER", "ADMIN_SSH_KEY_FILE", "SUDO_MODE", "HOST_NAME",
-         "CLAUDE_USER", "CLAUDE_CODE_CHANNEL", "GUEST_NAME")
+         "CLAUDE_USER", "CLAUDE_CODE_CHANNEL", "GUEST_NAME", "SHIM_REMOVE_SIGNATURE")
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class Settings:
     sudo_mode: str
     host_name: str
     guest_name: str
+    shim_remove_signature: str
     host_image: Path
     guest_image: Path
     installer_image: Path
@@ -71,6 +72,10 @@ def load() -> Settings:
     if channel not in ("stable", "latest"):
         raise ValueError("CLAUDE_CODE_CHANNEL must be stable or latest")
 
+    shim_remove_signature = values.get("SHIM_REMOVE_SIGNATURE", "none")
+    if shim_remove_signature not in ("none", "2011", "2023"):
+        raise ValueError("SHIM_REMOVE_SIGNATURE must be none, 2011, or 2023")
+
     host_image = Path(os.environ.get("QUARRY_TEST_HOST_IMAGE", BUILD_DIR / "host.img"))
     guest_image = Path(os.environ.get("QUARRY_TEST_GUEST_IMAGE", BUILD_DIR / "guest.img"))
     installer_image = Path(os.environ.get("QUARRY_TEST_INSTALLER_IMAGE", BUILD_DIR / "installer.img"))
@@ -83,6 +88,7 @@ def load() -> Settings:
         sudo_mode=sudo_mode,
         host_name=values.get("HOST_NAME", "quarry-host"),
         guest_name=values.get("GUEST_NAME", "quarry-guest"),
+        shim_remove_signature=shim_remove_signature,
         host_image=host_image,
         guest_image=guest_image,
         installer_image=installer_image,

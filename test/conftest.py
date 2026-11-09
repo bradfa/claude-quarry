@@ -21,9 +21,20 @@ def settings() -> quarry_settings.Settings:
     if missing:
         pytest.fail(f"Prerequisite missing: {missing}. See test/README.md", pytrace=False)
     try:
-        return quarry_settings.load()
+        loaded = quarry_settings.load()
     except (ValueError, OSError) as err:
         pytest.fail(str(err), pytrace=False)
+    if loaded.shim_remove_signature == "2011" and shutil.which("virt-fw-vars") is None:
+        pytest.fail("Prerequisite missing: virt-fw-vars (package python3-virt-firmware). "
+                    "SHIM_REMOVE_SIGNATURE=2011 needs it. See test/README.md", pytrace=False)
+    return loaded
+
+
+@pytest.fixture(scope="session")
+def secboot_vars(settings: quarry_settings.Settings, work_dir: Path) -> None:
+    """Without the 2011 signature, the shim needs the 2023 CA in the firmware."""
+    if settings.shim_remove_signature == "2011":
+        quarry_vm.use_secboot_vars_with_2023_ca(work_dir / "OVMF_VARS_4M.ms-2023.fd")
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +74,7 @@ def work_dir() -> Iterator[Path]:
 
 
 @pytest.fixture(scope="session")
-def make_vm(settings, agent_socket, work_dir):
+def make_vm(settings, agent_socket, work_dir, secboot_vars):
     def make(name: str, image: Path, **kwargs) -> quarry_vm.Vm:
         return quarry_vm.Vm(name, image, settings, work_dir, quarry_settings.LOG_DIR,
                             agent_socket, **kwargs)
@@ -71,7 +82,7 @@ def make_vm(settings, agent_socket, work_dir):
 
 
 @pytest.fixture(scope="session")
-def make_console(work_dir):
+def make_console(work_dir, secboot_vars):
     def make(name: str, disks: list[console.Disk], **kwargs) -> console.ConsoleVm:
         return console.ConsoleVm(name, work_dir, quarry_settings.LOG_DIR, disks, **kwargs)
     return make

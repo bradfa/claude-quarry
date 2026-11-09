@@ -14,9 +14,9 @@ import time
 
 import pytest
 
-from helpers import (EFI_SYSTEM, LINUX_ROOT_X86_64, assert_first_boot_layout, failed_units,
-                     partition, partitions, swap_is_active)
-from secureboot import make_disk_with_unsigned_file
+from helpers import (EFI_SYSTEM, LINUX_ROOT_X86_64, SHIM_PATHS, assert_first_boot_layout, expected_shim_cas,
+                     failed_units, partition, partitions, signature_cas, swap_is_active)
+from secureboot import esp_shim_cas, make_disk_with_unsigned_file
 from vm import HAS_KVM
 
 
@@ -69,6 +69,13 @@ def test_2_03_image_alignment_and_types(host_image):
     table = json.loads(out)["partitiontable"]["partitions"]
     assert [p["type"].lower() for p in table] == [EFI_SYSTEM, LINUX_ROOT_X86_64]
     assert all(p["start"] % 2048 == 0 for p in table), "a partition is not aligned to 1 MiB"
+
+
+def test_2_04_shim_signatures_in_the_esp(host_image, settings, work_dir):
+    found = esp_shim_cas(host_image, work_dir, "host")
+    expected = expected_shim_cas(settings.shim_remove_signature)
+    assert found == {path: expected for path in SHIM_PATHS}, (
+        f"SHIM_REMOVE_SIGNATURE={settings.shim_remove_signature}, so the CAs of the signatures must be {expected}")
 
 
 # Step 3: the first boot
@@ -214,6 +221,41 @@ def test_4_20_mdns_is_on(vm_a):
     link = vm_a.check("ip -o route show default").stdout.split()[4]
     assert vm_a.check(f"resolvectl mdns {link}").stdout.strip().endswith(": yes")
     assert ":5353" in vm_a.check("ss -uln").stdout
+
+
+def shim_cas_on_the_host(machine):
+    return {path: signature_cas(machine.check_sudo(f"sbverify --list /boot/efi{path}").stdout)
+            for path in SHIM_PATHS}
+
+
+def put_back_the_package_shim(machine):
+    """What the shim package does at each update: copy the file with both
+    signatures into the ESP."""
+    for path in SHIM_PATHS:
+        machine.check_sudo(f"cp /usr/lib/shim/shimx64.efi.signed /boot/efi{path}")
+
+
+def test_4_21_shim_signatures_on_the_running_host(vm_a, settings):
+    expected = expected_shim_cas(settings.shim_remove_signature)
+    assert shim_cas_on_the_host(vm_a) == {path: expected for path in SHIM_PATHS}
+
+
+def test_4_22_script_removes_the_signature_again(vm_a, settings):
+    put_back_the_package_shim(vm_a)
+    vm_a.check_sudo("quarry-shim-signature")
+    expected = expected_shim_cas(settings.shim_remove_signature)
+    assert shim_cas_on_the_host(vm_a) == {path: expected for path in SHIM_PATHS}
+
+
+def test_4_23_apt_hook_runs_the_script_after_a_package_change(vm_a, settings):
+    # The reinstall may or may not copy the shim to the ESP. The hook runs
+    # after it in both cases, so the result is the same.
+    put_back_the_package_shim(vm_a)
+    vm_a.check_sudo("env DEBIAN_FRONTEND=noninteractive apt-get update -q", timeout=180)
+    vm_a.check_sudo("env DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y -q shim-signed",
+                    timeout=300)
+    expected = expected_shim_cas(settings.shim_remove_signature)
+    assert shim_cas_on_the_host(vm_a) == {path: expected for path in SHIM_PATHS}
 
 
 # Step 5: access control

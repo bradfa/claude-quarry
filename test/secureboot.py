@@ -13,7 +13,7 @@ import struct
 import subprocess
 from pathlib import Path
 
-from helpers import EFI_SYSTEM
+from helpers import EFI_SYSTEM, SHIM_PATHS, signature_cas
 from vm import make_overlay
 
 BLOCK = 256 * 1024
@@ -84,6 +84,25 @@ def mtools(tool: str, esp: Path, *args: str) -> str:
     env = {**os.environ, "MTOOLS_SKIP_CHECK": "1"}
     result = subprocess.run([tool, "-i", str(esp), *args], capture_output=True, text=True, check=True, env=env)
     return result.stdout
+
+
+def esp_shim_cas(image: Path, work_dir: Path, name: str) -> dict[str, list[str]]:
+    """Return the CAs that signed each shim file in the ESP of an image."""
+    start, size = esp_range(image)
+    esp = work_dir / f"{name}-esp.img"
+    shim = work_dir / f"{name}-shim.efi"
+    copy_range(image, start, size, esp)
+    try:
+        found = {}
+        for path in SHIM_PATHS:
+            mtools("mcopy", esp, "-n", f"::{path}", str(shim))
+            listing = subprocess.run(["sbverify", "--list", str(shim)], capture_output=True, text=True,
+                                     check=True).stdout
+            found[path] = signature_cas(listing)
+        return found
+    finally:
+        esp.unlink(missing_ok=True)
+        shim.unlink(missing_ok=True)
 
 
 def kernel_path(esp: Path) -> str:

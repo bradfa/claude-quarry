@@ -13,8 +13,8 @@ host image and run all tests. They do not change your own `image/build.conf`.
 
    ```
    apt install debos bmap-tools zstd qemu-system-x86 qemu-utils ovmf mtools \
-       fdisk e2fsprogs openssh-client util-linux python3-pytest python3-pexpect \
-       python3-venv
+       fdisk e2fsprogs openssh-client util-linux sbsigntool python3-pytest \
+       python3-pexpect python3-venv
    ```
 
 2. Make a test key and a test configuration. Run this in the top directory of
@@ -74,6 +74,13 @@ What the configuration means:
 the file, so the defaults apply (`quarry-host`, `quarry-guest`, `claude`, and
 `stable`). The tests read the same defaults. The guest tests make a data disk
 for each guest themselves.
+
+`SHIM_REMOVE_SIGNATURE` is not in the file either, so the default `none`
+applies, and the tests expect both Microsoft signatures on the shim. Build the
+images with the same value that the tests read. With `2011`, the shim has only
+the 2023 signature, and the tests need the package `python3-virt-firmware`. The
+Debian variable store of the test firmware trusts only the 2011 CA, and the
+tests add the 2023 CA to a copy of it with `virt-fw-vars`.
 
 ## Without KVM
 

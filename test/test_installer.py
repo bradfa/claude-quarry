@@ -10,8 +10,9 @@ that disk.
 import pytest
 
 import console
-from helpers import (assert_first_boot_layout, assert_image_partitions, failed_units, lsblk_children,
-                    partitions, swap_is_active)
+from helpers import (SHIM_PATHS, assert_first_boot_layout, assert_image_partitions, expected_shim_cas,
+                    failed_units, lsblk_children, partitions, swap_is_active)
+from secureboot import esp_shim_cas
 
 ERASE_PROMPT = "to erase the whole disk: "
 TARGET_NAME = "virtio-TARGETDISK0001"
@@ -64,6 +65,13 @@ def test_3_00_installer_carries_the_host_image(installer):
     files = installer.check("ls /usr/share/quarry").output.split()
     assert "host.img.zst" in files and "host.bmap" in files, (
         f"{files}. Build the installer again with image/build.sh")
+
+
+def test_3_00a_shim_signatures_in_the_esp(installer_image, settings, work_dir):
+    found = esp_shim_cas(installer_image, work_dir, "installer")
+    expected = expected_shim_cas(settings.shim_remove_signature)
+    assert found == {path: expected for path in SHIM_PATHS}, (
+        f"SHIM_REMOVE_SIGNATURE={settings.shim_remove_signature}, so the CAs of the signatures must be {expected}")
 
 
 def test_3_01_banner_lists_the_disks(installer):
