@@ -34,6 +34,7 @@ load_config() {
         case $key in
             ADMIN_USER | ADMIN_SSH_KEY_FILE | SUDO_MODE | HOST_NAME | IMAGE_SIZE | INSTALLER_SIZE | MIRROR | KERNEL_CMDLINE_EXTRA) ;;
             CLAUDE_USER | CLAUDE_CODE_CHANNEL | GUEST_NAME | GUEST_IMAGE_SIZE | GUEST_EXTRA_PACKAGES) ;;
+            SHIM_REMOVE_SIGNATURE) ;;
             *) die "unknown setting in $file: $key" ;;
         esac
         [[ -n ${!key:-} ]] || printf -v "$key" '%s' "$value"
@@ -64,6 +65,7 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
 : "${GUEST_NAME:=quarry-guest}"
 : "${GUEST_IMAGE_SIZE:=32GB}"
 : "${GUEST_EXTRA_PACKAGES:=}"
+: "${SHIM_REMOVE_SIGNATURE:=none}"
 
 # The recipe repeats these checks, so a typo fails in seconds and not after
 # a debootstrap run.
@@ -76,6 +78,8 @@ prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
     die "HOST_NAME is not a valid host name"
 [[ $IMAGE_SIZE =~ ^[0-9]+GB$ ]] || die "IMAGE_SIZE must look like 34GB"
 [[ $INSTALLER_SIZE =~ ^[0-9]+GB$ ]] || die "INSTALLER_SIZE must look like 8GB"
+[[ $SHIM_REMOVE_SIGNATURE == none || $SHIM_REMOVE_SIGNATURE == 2011 || $SHIM_REMOVE_SIGNATURE == 2023 ]] ||
+    die "SHIM_REMOVE_SIGNATURE must be none, 2011, or 2023"
 [[ $CLAUDE_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] ||
     die "CLAUDE_USER must be a lowercase Linux user name"
 [[ $CLAUDE_USER != root ]] || die "CLAUDE_USER must not be root"
@@ -123,6 +127,7 @@ build_host() {
         -t "image_size:$IMAGE_SIZE" \
         -t "mirror:$MIRROR" \
         -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
+        -t "shim_remove_signature:$SHIM_REMOVE_SIGNATURE" \
         "$script_dir/host.yaml"
 }
 
@@ -136,6 +141,7 @@ build_installer() {
         -t "installer_size:$INSTALLER_SIZE" \
         -t "mirror:$MIRROR" \
         -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \
+        -t "shim_remove_signature:$SHIM_REMOVE_SIGNATURE" \
         "$script_dir/installer.yaml"
 }
 

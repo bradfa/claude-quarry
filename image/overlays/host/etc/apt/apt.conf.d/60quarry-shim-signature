@@ -1,0 +1,4 @@
+// The shim package puts the two-signature shim back in the ESP at each update.
+// The script removes the signature that the image build chose (see
+// /etc/quarry/shim-remove-signature). It does nothing when the choice is none.
+DPkg::Post-Invoke { "/usr/sbin/quarry-shim-signature"; };

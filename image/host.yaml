@@ -15,6 +15,7 @@
 {{- $image_size := or .image_size "34GB" }}
 {{- $mirror := or .mirror "http://deb.debian.org/debian/" }}
 {{- $kernel_cmdline_extra := or .kernel_cmdline_extra "" }}
+{{- $shim_remove_signature := or .shim_remove_signature "none" }}
 
 architecture: amd64
 
@@ -27,6 +28,7 @@ actions:
       [ -n '{{ $admin_ssh_key }}' ] || { echo "admin_ssh_key is not set" >&2; exit 1; }
       [ '{{ $admin_user }}' != root ] || { echo "admin_user must not be root" >&2; exit 1; }
       case '{{ $sudo_mode }}' in agent|nopasswd) ;; *) echo "sudo_mode must be agent or nopasswd" >&2; exit 1 ;; esac
+      case '{{ $shim_remove_signature }}' in none|2011|2023) ;; *) echo "shim_remove_signature must be none, 2011, or 2023" >&2; exit 1 ;; esac
 
   - action: debootstrap
     description: Debootstrap core distro
@@ -65,12 +67,14 @@ actions:
     description: Install base packages
     packages:
       - amd64-microcode
+      - bash-completion
       - ca-certificates
       - chrony
       - curl
       - dosfstools
       - efitools
       - ethtool
+      - fwupd
       - intel-microcode
       - iproute2
       - less
@@ -80,6 +84,7 @@ actions:
       - openssh-server
       - openssl
       - pciutils
+      - sbsigntool
       - sudo
       - systemd-repart
       - systemd-resolved
@@ -92,6 +97,20 @@ actions:
   - action: overlay
     description: Apply system overlay files
     source: overlays/host
+
+  # The script that removes a shim signature is the same for the host and the
+  # installer (see quarry-shim-signature).
+  - action: overlay
+    description: Apply the shim signature script
+    source: overlays/shim
+
+  - action: run
+    description: Record the choice for the shim signature
+    chroot: true
+    command: |
+      echo "Writing /etc/quarry/shim-remove-signature"
+      install -v -d /etc/quarry
+      echo '{{ $shim_remove_signature }}' > /etc/quarry/shim-remove-signature
 
   - action: run
     description: Set host name, locale, and time zone
@@ -264,6 +283,24 @@ actions:
       - shim-signed
       - systemd-boot
       - systemd-boot-efi-amd64-signed
+
+  # The Debian shim has two Microsoft signatures. Some firmware rejects a file
+  # with two (see quarry-shim-signature). The apt hook of the overlay also runs
+  # the script after every package change, so an update cannot bring the
+  # removed signature back. The check makes the build fail when the choice did
+  # not give a shim with one signature, for example when a new shim package has
+  # only one signature.
+  - action: run
+    description: Remove the chosen signature from the shim
+    chroot: true
+    command: |
+      set -e
+      /usr/sbin/quarry-shim-signature
+      [ '{{ $shim_remove_signature }}' != none ] || exit 0
+      for file in /boot/efi/EFI/BOOT/BOOTX64.EFI /boot/efi/EFI/debian/shimx64.efi; do
+        count=$(sbverify --list "$file" 2>/dev/null | grep -c '^signature' || true)
+        [ "$count" = 1 ] || { echo "$file has $count signatures, not 1" >&2; exit 1; }
+      done
 
   - action: run
     description: Fix up the systemd-boot default timeout

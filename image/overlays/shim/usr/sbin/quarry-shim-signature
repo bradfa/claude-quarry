@@ -1,0 +1,83 @@
+#!/bin/bash
+# Remove one of the two Microsoft signatures from the shim in the ESP.
+#
+# The Debian shim carries a signature from the Microsoft UEFI CA 2011 and one
+# from the Microsoft UEFI CA 2023. Some older firmware rejects a file with two
+# signatures, with the message "Secure Boot Violation: Invalid signature
+# detected", even when both CAs are in its database. The signatures sign the
+# same bytes, so a file with one of them stays valid. See
+# doc/design/host-baseline.md.
+#
+# Usage: quarry-shim-signature [none|2011|2023]
+#   The argument names the signature to remove. Without an argument, the script
+#   reads /etc/quarry/shim-remove-signature, and it does nothing when that file
+#   is missing. The image build runs it with an argument. On the host, an apt
+#   hook runs it after every package change, because the shim package puts the
+#   two-signature file back in the ESP at each update.
+#
+# The script never removes the only signature of a file, and it leaves a file
+# alone when the named signature is not there.
+set -euo pipefail
+
+esp=${QUARRY_ESP:-/boot/efi}
+config=/etc/quarry/shim-remove-signature
+
+die() {
+    echo "quarry-shim-signature: $*" >&2
+    exit 1
+}
+
+choice=${1:-}
+if [[ -z $choice ]]; then
+    choice=none
+    [[ ! -r $config ]] || choice=$(< "$config")
+fi
+
+case $choice in
+    none) exit 0 ;;
+    2011) ca="Microsoft Corporation UEFI CA 2011" ;;
+    2023) ca="Microsoft UEFI CA 2023" ;;
+    *) die "the choice must be none, 2011, or 2023, not '$choice'" ;;
+esac
+
+# Print the number of the signature that the named CA issued. In the output of
+# sbverify --list, the issuers of a signature follow its "signature N" line.
+signature_of_ca() {
+    sbverify --list "$1" 2> /dev/null | awk -v ca="CN=$ca" '
+        /^signature [0-9]+/ { n = $2 }
+        /image signature issuers:/ { in_issuers = 1; next }
+        /image signature certificates:/ { in_issuers = 0 }
+        in_issuers && index($0, ca) { print n; exit }
+    '
+}
+
+count_signatures() {
+    sbverify --list "$1" 2> /dev/null | grep -c '^signature' || true
+}
+
+for file in "$esp/EFI/BOOT/BOOTX64.EFI" "$esp/EFI/debian/shimx64.efi"; do
+    [[ -f $file ]] || continue
+    total=$(count_signatures "$file")
+    if ((total < 2)); then
+        # With one signature, there is nothing to remove. If the named CA made
+        # it, the choice would leave no signature, so the script keeps it.
+        [[ -z $(signature_of_ca "$file") ]] ||
+            echo "quarry-shim-signature: $file has one signature, from the CA to remove. Nothing is removed." >&2
+        continue
+    fi
+    number=$(signature_of_ca "$file")
+    if [[ -z $number ]]; then
+        echo "quarry-shim-signature: $file has no signature from the Microsoft UEFI CA $choice. Nothing is removed." >&2
+        continue
+    fi
+    # Work on a copy. A failure then never leaves a damaged shim in the ESP.
+    copy=$file.new
+    cp "$file" "$copy"
+    sbattach --signum "$number" --remove "$copy" 2> /dev/null
+    if [[ $(count_signatures "$copy") -ne $((total - 1)) || -n $(signature_of_ca "$copy") ]]; then
+        rm -f "$copy"
+        die "removing signature $number of $file did not give the expected file"
+    fi
+    mv -f "$copy" "$file"
+    echo "quarry-shim-signature: removed the $choice signature from $file"
+done

@@ -47,6 +47,22 @@ KERNEL_CMDLINE_EXTRA=
 # Debian mirror used for the build.
 MIRROR=http://deb.debian.org/debian/
 
+# Remove one of the two Microsoft signatures from the shim, in the host image
+# and in the installer. The Debian shim has a signature from the Microsoft UEFI
+# CA 2011 and one from the 2023 CA. Some older firmware rejects a file with two
+# signatures and shows "Secure Boot Violation: Invalid signature detected", even
+# when both CAs are in its key database. The host image also removes the
+# signature again after every package update.
+#   none  Leave the shim as Debian ships it. This is the default.
+#   2011  Remove the 2011 signature. The firmware must have the 2023 CA in its
+#         database. A new PC usually has it, and an older one can get it with
+#         "fwupdmgr update". The installer then needs Secure Boot off on a PC
+#         that does not have the 2023 CA yet.
+#   2023  Remove the 2023 signature. The firmware must have the 2011 CA, which
+#         most PCs have from the factory.
+# The build fails if the shim does not have a signature to remove.
+SHIM_REMOVE_SIGNATURE=none
+
 # The settings below are for the guest image. The guest image has two users:
 # the Claude account and ADMIN_USER. Both use the key of ADMIN_USER. Only
 # ADMIN_USER gets sudo. SUDO_MODE and KERNEL_CMDLINE_EXTRA also apply to it.
