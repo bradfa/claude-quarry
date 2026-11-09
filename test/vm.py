@@ -60,12 +60,15 @@ def data_disk_args(disk):
     return ["-drive", f"if=virtio,format=raw,file={disk}"]
 
 
-def firmware_args(vars_file, secure_boot=True):
+def firmware_args(vars_file, secure_boot=True, empty_keys=False):
     """Copy the variable store to vars_file and return the QEMU options for the
     machine and the firmware. Only a test that must prove that a disk is fine
-    without Secure Boot turns it off."""
+    without Secure Boot turns it off. With empty_keys, the firmware can enforce
+    Secure Boot but holds no keys, so it is in Setup Mode, like a PC after
+    "Custom Keys" in the setup menu."""
     if secure_boot:
-        code, template = OVMF_CODE_SECBOOT, OVMF_VARS_SECBOOT
+        code = OVMF_CODE_SECBOOT
+        template = OVMF_VARS if empty_keys else OVMF_VARS_SECBOOT
         # The keys sit in flash that only the firmware can write (SMM). QEMU
         # needs S3 off for this.
         machine = ["-machine", "q35,smm=on", "-global", "driver=cfi.pflash01,property=secure,value=on",
@@ -97,9 +100,10 @@ class Vm:
     image and a disk to boot an existing qcow2 disk as it is."""
 
     def __init__(self, name, base_image, settings, work_dir, log_dir, agent_socket,
-                 resize=None, memory=2048, disk=None, secure_boot=True):
+                 resize=None, memory=2048, disk=None, secure_boot=True, empty_keys=False):
         self.name = name
         self.secure_boot = secure_boot
+        self.empty_keys = empty_keys
         self.settings = settings
         self.agent_socket = agent_socket
         self.memory = memory
@@ -121,7 +125,7 @@ class Vm:
 
         self.port = free_port()
         accel = ["-enable-kvm", "-cpu", "host"] if HAS_KVM else ["-accel", "tcg", "-cpu", "max"]
-        argv = ["qemu-system-x86_64", *firmware_args(self.vars, self.secure_boot),
+        argv = ["qemu-system-x86_64", *firmware_args(self.vars, self.secure_boot, self.empty_keys),
                 "-smp", "2", "-m", str(self.memory), *accel,
                 "-display", "none", "-monitor", "none", "-serial", f"file:{self.serial_log}",
                 "-drive", f"if=virtio,format=qcow2,file={self.disk}",

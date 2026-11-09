@@ -41,7 +41,7 @@ host image and run all tests. They do not change your own `image/build.conf`.
    BUILD_CONF=image/build/test.conf image/build.sh
    ```
 
-4. Run the tests. The suite boots about thirteen machines. One test waits up to
+4. Run the tests. The suite boots about fourteen machines. One test waits up to
    5 minutes for the time sync, and two tests wait 2 minutes to prove that the
    firmware refuses a boot:
 
@@ -135,6 +135,7 @@ The settings have the same names as in `image/build.sh`: `ADMIN_USER`,
 | `conftest.py` | The fixtures |
 | `test_host_image.py` | The host image tests. A name such as `test_4_03` is check 4.3 of the old manual page |
 | `test_installer.py` | The installer tests, in the same style. The tests write the host image to a virtual disk and boot that disk |
+| `test_enroll_keys.py` | The key enrollment script of the host image. It boots the host on OVMF in Setup Mode (a firmware with no keys), runs the script, reboots, and checks that Secure Boot is on and the host still boots |
 | `test_guest_image.py` | The guest image tests: the two accounts, the SSH settings, the data disk and the configuration directory of Claude Code, the package and the update settings, and the managed files. They boot the guest with a data disk, reset the system disk, and boot a guest with no data disk |
 | `manual/real-guest.md` | The checks that need a login to Claude Code |
 
