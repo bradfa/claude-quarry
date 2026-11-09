@@ -69,13 +69,16 @@ actions:
       - chrony
       - curl
       - dosfstools
+      - efitools
       - ethtool
       - intel-microcode
       - iproute2
       - less
       - linux-image-amd64
       - locales
+      - mokutil
       - openssh-server
+      - openssl
       - pciutils
       - sudo
       - systemd-repart

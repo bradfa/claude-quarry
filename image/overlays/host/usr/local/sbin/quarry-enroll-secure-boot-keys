@@ -1,0 +1,95 @@
+#!/bin/bash
+# Enroll Secure Boot keys on a firmware that has none.
+#
+# Some firmware, for example HP business desktops with "Custom Keys", starts in
+# Setup Mode with an empty key database. Then it accepts no signed boot loader
+# (the keys of the vendor lack the Microsoft CA), or it accepts everything
+# (Secure Boot is off). This script fills the database, so Secure Boot checks
+# the Microsoft-signed shim of Debian. See doc/design/host-baseline.md.
+#
+# What it writes:
+#   db   Microsoft UEFI CA 2011 and 2023. They sign the shim.
+#   KEK  Microsoft KEK CA 2011 and KEK 2K CA 2023. They let fwupd apply later
+#        updates of db and dbx.
+#   PK   A new key that exists only during this run. Writing the PK ends Setup
+#        Mode. The script then deletes the private key. Nothing on this host
+#        signs anything with it, and a later change of the keys starts from
+#        Setup Mode again.
+set -euo pipefail
+
+dir=/usr/local/share/quarry/secureboot
+efivars=/sys/firmware/efi/efivars
+# GUID of the owner field of the entries that Microsoft makes.
+microsoft_guid=77fa9abd-0359-4d32-bd60-28f4e78f784b
+
+# SHA-256 fingerprints of the certificates. The files come from
+# https://github.com/microsoft/secureboot_objects (PreSignedObjects). Each
+# fingerprint matches a certificate in a Debian 13 package, which apt checked
+# with the signature of the archive:
+#   all four  python3-virt-firmware 24.11-2, directory
+#             /usr/lib/python3/dist-packages/virt/firmware/certs
+#   UEFI CA 2011, KEK CA 2011  ovmf, file OVMF_VARS_4M.ms.fd
+#   UEFI CA 2023               the Microsoft signature of the shim-signed binary
+# The ca-certificates package has no root for these certificates, so it cannot
+# check them.
+declare -A pin=(
+    [db-microsoft-uefi-ca-2011.pem]=48:E9:9B:99:1F:57:FC:52:F7:61:49:59:9B:FF:0A:58:C4:71:54:22:9B:9F:8D:60:3A:C4:0D:35:00:24:85:07
+    [db-microsoft-uefi-ca-2023.pem]=F6:12:4E:34:12:5B:EE:3F:E6:D7:9A:57:4E:AA:7B:91:C0:E7:BD:9D:92:9C:1A:32:11:78:EF:D6:11:DA:D9:01
+    [kek-microsoft-kek-ca-2011.pem]=A1:11:7F:51:6A:32:CE:FC:BA:3F:2D:1A:CE:10:A8:79:72:FD:6B:BE:8F:E0:D0:B9:96:E0:9E:65:D8:02:A5:03
+    [kek-microsoft-kek-2k-ca-2023.pem]=3C:D3:F0:30:9E:DA:E2:28:76:7A:97:6D:D4:0D:9F:4A:FF:C4:FB:D5:21:8F:2E:8C:C3:C9:DD:97:E8:AC:6F:9D
+)
+
+die() {
+    echo "quarry-enroll-secure-boot-keys: $*" >&2
+    exit 1
+}
+
+# An EFI variable file has 4 bytes of attributes, then the value.
+efi_byte() {
+    od -An -tu1 -j4 -N1 "$efivars/$1-8be4df61-93ca-11d2-aa0d-00e098032b8c" | tr -d ' '
+}
+
+[[ $EUID -eq 0 ]] || die "run this script as root"
+[[ -d $efivars ]] || die "the host did not boot with UEFI"
+
+if [[ $(efi_byte SetupMode) != 1 ]]; then
+    die "the firmware is not in Setup Mode. Clear the Secure Boot keys in the
+firmware setup, then run this script again. The menu name depends on the
+vendor. On an HP desktop, set the key ownership to Custom Keys."
+fi
+
+for file in "${!pin[@]}"; do
+    actual=$(openssl x509 -in "$dir/$file" -noout -fingerprint -sha256 | cut -d= -f2)
+    [[ $actual == "${pin[$file]}" ]] || die "$file has the wrong fingerprint: $actual"
+done
+
+work=$(mktemp -d -p /run)
+trap 'rm -rf "$work"' EXIT
+
+echo "Making the Platform Key"
+openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
+    -subj "/CN=quarry host Platform Key/" -keyout "$work/PK.key" -out "$work/PK.crt" 2> /dev/null
+cert-to-efi-sig-list -g "$(< /proc/sys/kernel/random/uuid)" "$work/PK.crt" "$work/PK.esl"
+
+for file in "$dir"/db-*.pem; do
+    cert-to-efi-sig-list -g "$microsoft_guid" "$file" "$work/${file##*/}.esl"
+done
+cat "$work"/db-*.esl > "$work/db.esl"
+for file in "$dir"/kek-*.pem; do
+    cert-to-efi-sig-list -g "$microsoft_guid" "$file" "$work/${file##*/}.esl"
+done
+cat "$work"/kek-*.esl > "$work/KEK.esl"
+
+for name in PK KEK db; do
+    sign-efi-sig-list -k "$work/PK.key" -c "$work/PK.crt" "$name" "$work/$name.esl" "$work/$name.auth"
+done
+
+# The PK is last. Writing it ends Setup Mode, and the firmware then refuses an
+# unsigned write of db or KEK.
+for name in db KEK PK; do
+    echo "Writing $name"
+    efi-updatevar -f "$work/$name.auth" "$name"
+done
+
+[[ $(efi_byte SetupMode) == 0 ]] || die "the firmware is still in Setup Mode"
+echo "Done. Reboot the host. Then run: mokutil --sb-state"
