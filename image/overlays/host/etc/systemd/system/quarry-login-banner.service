@@ -5,7 +5,7 @@ Description=Show the network addresses at the login prompt
 After=systemd-networkd.service
 
 [Service]
-ExecStart=/usr/local/sbin/quarry-login-banner
+ExecStart=/usr/sbin/quarry-login-banner
 Restart=on-failure
 
 [Install]

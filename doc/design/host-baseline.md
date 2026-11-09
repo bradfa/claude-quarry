@@ -143,7 +143,7 @@ image.
   of `db` [A34]. It makes a new Platform Key (PK), writes it last (this ends
   Setup Mode), and deletes the private key. No other signing key exists on the
   host. To change the keys later, put the firmware in Setup Mode again.
-- The certificates are in `/usr/local/share/quarry/secureboot`, and the script
+- The certificates are in `/usr/share/quarry/secureboot`, and the script
   checks the SHA-256 fingerprint of each one before it writes anything. Each
   fingerprint also matches a certificate in a Debian package (see the script).
   The script adds no Windows key, so the host cannot start Windows.

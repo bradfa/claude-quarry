@@ -17,7 +17,7 @@
 #        Setup Mode again.
 set -euo pipefail
 
-dir=/usr/local/share/quarry/secureboot
+dir=/usr/share/quarry/secureboot
 efivars=/sys/firmware/efi/efivars
 # GUID of the owner field of the entries that Microsoft makes.
 microsoft_guid=77fa9abd-0359-4d32-bd60-28f4e78f784b
