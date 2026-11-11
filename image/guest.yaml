@@ -84,6 +84,9 @@ actions:
       - locales
       - openssh-server
       - qemu-guest-agent
+      # For the virtual machines that a test or runqemu starts in the guest
+      # (see doc/design/guest-access.md, the kvm group).
+      - qemu-system-x86
       - sudo
       - systemd-resolved
       - tmux
@@ -149,15 +152,16 @@ actions:
 
   # Both accounts use the same key. Root owns the key files, so the Claude
   # account cannot add a key to its own account (see
-  # doc/design/guest-access.md). The Claude account is in no group: no sudo,
-  # no disk.
+  # doc/design/guest-access.md). The Claude account is in the kvm group only:
+  # no sudo, no disk. The group gives /dev/kvm, so that a test or a Yocto
+  # runqemu run in the guest uses hardware acceleration.
   - action: run
     description: Create the Claude and administrator users and lock root
     chroot: true
     command: |
       set -e
       echo "Creating user {{ $claude_user }}"
-      useradd --create-home --shell /bin/bash '{{ $claude_user }}'
+      useradd --create-home --shell /bin/bash --groups kvm '{{ $claude_user }}'
       echo "Creating user {{ $admin_user }}"
       useradd --create-home --shell /bin/bash --groups sudo '{{ $admin_user }}'
       chmod -v 0700 '/home/{{ $claude_user }}' '/home/{{ $admin_user }}'

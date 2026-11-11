@@ -87,8 +87,8 @@ Host quarry-guest-admin
   of the Claude account. This includes `make`, scripts, and a command in a
   repository that reads files which Claude controls.
 - The admin account never attaches to the tmux session of the Claude account.
-- The Claude account is never in the `sudo` group, and never in the `disk`
-  group. The `disk` group gives raw access to the disks of the guest, including
+- The Claude account is in the `kvm` group and in no other group. It is never in
+  the `sudo` group, and never in the `disk` group. The `disk` group gives raw access to the disks of the guest, including
   the data disk with the Claude login.
 
 ## Root work without `sudo`
@@ -101,6 +101,7 @@ for a command that runs a file which Claude can write, is root in disguise.
 | --- | --- |
 | Serial adapters and USB devices | A group, for example `dialout`, and `udev` rules that match vendor and product IDs. |
 | SD card mux and SD cards | A `udev` rule that gives the mux disk to a new group, for example `sdmux`. The rule matches the `/dev/disk/by-id` name of the mux. Not the `disk` group. |
+| Hardware virtualization (`/dev/kvm`) for a test VM or `runqemu` | The Claude account is in the `kvm` group, and it has no other group. The device exists only when the guest has nested virtualization (see `host-baseline.md`). |
 | Kernel modules | The image loads the needed modules at boot (`/etc/modules-load.d`). `udev` loads the USB serial drivers. |
 | DHCP, TFTP, and NFS for a board | Root-owned services and a root-owned generator. See below. |
 | Software packages | The image build installs them. Claude has no `apt`. Python environments and similar tools install in the home directory. |
