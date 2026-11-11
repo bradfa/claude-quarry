@@ -57,7 +57,7 @@ The git history keeps the deleted rows.
 | --- | --- | --- | --- |
 | Q2 | What IOMMU group does the PCIe xHCI card get, and does it share a group with anything except its root port? Does it reset cleanly over many cycles? | passthrough | Install the card. Run the discovery script and the start and stop cycles. |
 | Q3 | Does the added Ethernet card reset cleanly over many cycles, given that it has no function-level reset? | passthrough | Run the start and stop cycles. |
-| Q4 | Does the `claude_guest` table work beside the `libvirt_network` table and beside Tailscale? | network | Load the table, then test from inside the guest. |
+| Q4 | Does the `claude_guest` table work beside Tailscale on a real host, and beside `libvirt_network`? The virtual machine tests (step 4 of `test_guest_setup.py`) cover only the second part. | network | On the real host, run `nft list ruleset` and probe the LAN, a tailnet address, and a host service from inside the guest. |
 | Q5 | Is 10 GiB of RAM and 6 vCPUs right for the guest, and how long do real builds take on the spinning disk? | passthrough | Time real builds. |
 | Q6 | Does the real firmware of the host boot the host image and the installer through the removable-media path? The OVMF firmware of the virtual machine does. | host-baseline | Boot the installer on the real host. |
 | Q7 | How does bitbake behave across `virsh suspend` and resume, including fetches in progress and `BB_SERVER_TIMEOUT`? | run-control | Suspend during a build. |
