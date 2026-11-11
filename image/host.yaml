@@ -78,12 +78,18 @@ actions:
       - intel-microcode
       - iproute2
       - less
+      - libvirt-clients
+      - libvirt-daemon-system
       - linux-image-amd64
       - locales
       - mokutil
+      - nftables
       - openssh-server
       - openssl
+      - ovmf
       - pciutils
+      - qemu-system-x86
+      - qemu-utils
       - sbsigntool
       - sudo
       - systemd-repart
@@ -97,6 +103,32 @@ actions:
   - action: overlay
     description: Apply system overlay files
     source: overlays/host
+
+  # The package makes the default network only when it is first installed, so
+  # an update does not bring it back. The guest uses the quarry network.
+  - action: run
+    description: Replace the default libvirt network with the quarry network
+    chroot: true
+    command: |
+      set -e
+      echo "Removing the default libvirt network"
+      rm -fv /etc/libvirt/qemu/networks/default.xml /etc/libvirt/qemu/networks/autostart/default.xml
+      echo "Starting the quarry network when libvirt starts"
+      install -v -d /etc/libvirt/qemu/networks/autostart
+      ln -sv ../quarry.xml /etc/libvirt/qemu/networks/autostart/quarry.xml
+
+  # Without this line, libvirt uses iptables when that package is installed,
+  # and the package depends on "iptables | nftables", so apt installs iptables.
+  # The firewall of the host is nftables (see doc/design/network.md). The check
+  # makes the build fail when a new libvirt package changes the line.
+  - action: run
+    description: Make libvirt use nftables for its firewall rules
+    chroot: true
+    command: |
+      set -e
+      echo "Setting firewall_backend in /etc/libvirt/network.conf"
+      sed -i 's/^#firewall_backend = "iptables"$/firewall_backend = "nftables"/' /etc/libvirt/network.conf
+      grep -n '^firewall_backend = "nftables"$' /etc/libvirt/network.conf
 
   # The script that removes a shim signature is the same for the host and the
   # installer (see quarry-shim-signature).
@@ -180,7 +212,7 @@ actions:
     chroot: true
     command: |
       set -e
-      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service quarry-login-banner.service
+      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service quarry-login-banner.service libvirtd.service libvirt-guests.service
       systemctl mask systemd-firstboot.service
 
   - action: run
@@ -241,9 +273,10 @@ actions:
 {{- end }}
 
   # With nofail, a missing or damaged vmdata partition does not stop the boot,
-  # so the host stays reachable on the network or the console. The runbook
-  # adds RequiresMountsFor=/var/lib/libvirt to the libvirt units, so they do
-  # not write VM disks to the root file system when the mount is missing.
+  # so the host stays reachable on the network or the console. The libvirt
+  # units have RequiresMountsFor=/var/lib/libvirt (see the drop-ins in
+  # overlays/host/etc/systemd/system), so they do not write VM disks to the
+  # root file system when the mount is missing.
   - action: run
     description: Mount VM storage by partition label
     chroot: true

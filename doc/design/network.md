@@ -9,7 +9,10 @@ tested.
 
 - The guest has two network interfaces.
   - The first is a virtio interface on a dedicated libvirt NAT network (not the
-    default network). It gives internet access.
+    default network). It gives internet access. The host image defines this
+    network: its name is `quarry`, its bridge is `virbr-quarry`, and its
+    addresses are `10.250.0.0/24`. The host is `10.250.0.1`. The image has no
+    `default` network.
   - The second is the passthrough Ethernet card (see `passthrough.md`). Cable it
     directly to the board or to a dedicated switch.
 - Never cable the board network to the office LAN or to any uplink.
@@ -44,10 +47,16 @@ is covered. For traffic from the guest bridge:
 The order of the rules is not a problem for drop rules. A drop in any nftables
 base chain ends the packet. An accept in another chain does not override it.
 
-Find out which firewall backend libvirt 11.3 uses on Debian 13 [Q4]. Run
-`nft list ruleset` after you install libvirt. Test from inside the guest: try to
-reach a LAN machine, a tailnet address, and a host service. All must fail.
-Repeat the test after every libvirt, Tailscale, or nftables change.
+Libvirt 11.3 uses the first backend that it finds, and it tries `iptables`
+before `nftables`. The package depends on `iptables | nftables`, so apt installs
+`iptables`. The host image sets `firewall_backend = "nftables"` in
+`/etc/libvirt/network.conf`. Libvirt then makes its own table, `libvirt_network`,
+and does not use the tables `filter`, `nat`, and `mangle`. A test checks this.
+
+Check that the `claude_guest` table works beside the `libvirt_network` table and
+beside Tailscale [Q4]. Run `nft list ruleset` on the host. Test from inside the
+guest: try to reach a LAN machine, a tailnet address, and a host service. All
+must fail. Repeat the test after every libvirt, Tailscale, or nftables change.
 
 ## Guest rules
 

@@ -1,0 +1,10 @@
+<network>
+  <name>quarry</name>
+  <forward mode='nat'/>
+  <bridge name='virbr-quarry'/>
+  <ip address='10.250.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.250.0.100' end='10.250.0.200'/>
+    </dhcp>
+  </ip>
+</network>

@@ -82,6 +82,17 @@ the 2023 signature, and the tests need the package `python3-virt-firmware`. The
 Debian variable store of the test firmware trusts only the 2011 CA, and the
 tests add the 2023 CA to a copy of it with `virt-fw-vars`.
 
+## Only the guest setup tests
+
+Build the host image first (`BUILD_CONF=image/build/test.conf image/build.sh host`).
+Then run only the guest setup tests. They write their own result file, so they
+do not replace `junit.xml`:
+
+```
+BUILD_CONF=image/build/test.conf test/.venv/bin/python -m pytest \
+    test/test_guest_setup.py -v --junitxml=image/build/junit-guest-setup.xml
+```
+
 ## Without KVM
 
 QEMU then emulates the CPU. The tests still work, but each boot takes many
@@ -143,6 +154,7 @@ The settings have the same names as in `image/build.sh`: `ADMIN_USER`,
 | `test_host_image.py` | The host image tests. A name such as `test_4_03` is check 4.3 of the old manual page |
 | `test_installer.py` | The installer tests, in the same style. The tests write the host image to a virtual disk and boot that disk |
 | `test_enroll_keys.py` | The key enrollment script of the host image. It boots the host on OVMF in Setup Mode (a firmware with no keys), runs the script, reboots, and checks that Secure Boot is on and the host still boots |
+| `test_guest_setup.py` | The guest setup on the host image: libvirt, the quarry network, and later the guest and the firewall. Run it alone, because it is much faster than the whole suite (see below) |
 | `test_guest_image.py` | The guest image tests: the two accounts, the SSH settings, the data disk and the configuration directory of Claude Code, the package and the update settings, and the managed files. They boot the guest with a data disk, reset the system disk, and boot a guest with no data disk |
 | `manual/real-guest.md` | The checks that need a login to Claude Code |
 

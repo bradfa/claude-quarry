@@ -43,8 +43,9 @@ off VMX, so the `kvm-ok` tool is not needed.
 The recipe is an adaptation of the x86_64 UEFI recipes in the `debos-configs`
 repository. It installs Debian 13 with the `main`, `contrib`, `non-free`, and
 `non-free-firmware` components, the `trixie-updates` suite, and the
-`trixie-security` suite. The image has no libvirt, so the runbook can show those
-steps. Tailscale is an optional overlay (see `network.md`).
+`trixie-security` suite. The image has libvirt, QEMU, OVMF, and `nftables`. It
+has the `quarry` libvirt network, and it has no other libvirt network (see
+`network.md`). Tailscale is an optional overlay (see `network.md`).
 
 ### Disk layout
 
@@ -75,9 +76,9 @@ Rules for the layout:
   emergency mode, and the locked root account gives no shell. The owner chose
   this because the host always has a console path: a monitor, a KVM switch, a
   serial console server, or a BMC.
-- The runbook adds `RequiresMountsFor=/var/lib/libvirt` to the libvirt units.
-  Then libvirt cannot write VM disks to the root file system when the mount is
-  missing.
+- The libvirt units (`libvirtd`, `virtlogd`, `virtlockd`, and `libvirt-guests`)
+  have `RequiresMountsFor=/var/lib/libvirt` in a drop-in file. Then libvirt
+  cannot write VM disks to the root file system when the mount is missing.
 - A runaway guest cannot fill the host root, because VM storage is a separate
   file system.
 
