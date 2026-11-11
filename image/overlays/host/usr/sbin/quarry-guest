@@ -1,0 +1,304 @@
+#!/bin/bash
+# Manage the quarry guest, a libvirt domain on this host. Run it as root.
+#
+# The system disk of the guest is a qcow2 overlay of a read-only base image.
+# The data disk is a separate raw file. A reset replaces the overlay and keeps
+# the data disk (see doc/design/guest-storage.md). The domain has a fixed MAC
+# address, and the quarry network gives that MAC a fixed IP address.
+set -euo pipefail
+
+readonly images_dir=/var/lib/libvirt/images
+readonly name_file=/etc/quarry/guest-name
+readonly mac=52:54:00:71:00:10
+readonly virsh_uri=qemu:///system
+
+name=quarry-guest
+overlay=
+data=
+# Set to 1 when create has finished. The exit trap removes the new disk files
+# of a create that did not finish.
+create_done=0
+
+usage() {
+    cat <<'EOF'
+Usage: quarry-guest COMMAND [OPTIONS]
+
+Commands:
+  create --base FILE [--memory MIB] [--vcpus N] [--data-size GIB]
+        Make the system overlay of FILE and an empty data disk, and define the
+        guest. FILE is a raw image. The defaults are 10240 MiB, 6 vCPUs, and
+        200 GiB. It does not start the guest.
+  start
+        Start the guest.
+  stop [--timeout SECONDS]
+        Ask the guest to shut down. Force it off after the timeout (120).
+  reset [--base FILE]
+        Replace the system overlay. The guest must be stopped. The data disk
+        stays. With --base, the new overlay uses another base image.
+  snapshot
+        Copy the data disk to a new file. The guest must be stopped. The
+        copy shares its blocks with the data disk (reflink), so it needs
+        almost no space. It prints the name of the copy.
+  status
+        Show the state of the guest and the names of its disks.
+EOF
+}
+
+die() {
+    echo "quarry-guest: $*" >&2
+    exit 1
+}
+
+virsh_system() {
+    virsh -c "$virsh_uri" "$@"
+}
+
+domain_exists() {
+    virsh_system dominfo "$name" >/dev/null 2>&1
+}
+
+domain_state() {
+    virsh_system domstate "$name"
+}
+
+require_domain() {
+    domain_exists || die "the guest $name does not exist. Run: quarry-guest create --base FILE"
+}
+
+require_stopped() {
+    [[ $(domain_state) == "shut off" ]] || die "the guest is not shut off. Run: quarry-guest stop"
+}
+
+# Stop with a message when the option has no value.
+need_value() {
+    local option=$1 count=$2
+    (( count >= 2 )) || die "the option $option needs a value"
+}
+
+require_number() {
+    local option=$1 value=$2 minimum=$3
+    if [[ ! $value =~ ^[0-9]+$ ]] || (( value < minimum )); then
+        die "the value of $option must be a whole number of at least $minimum"
+    fi
+}
+
+require_base() {
+    [[ -f $1 || -b $1 ]] || die "the base image is not a file or a block device: $1"
+}
+
+make_overlay() {
+    qemu-img create -q -f qcow2 -F raw -b "$1" "$overlay"
+}
+
+# The name of the base image is in the header of the overlay. A running guest
+# locks the file, so -U (share the lock) lets status work in that case.
+base_of_overlay() {
+    qemu-img info -U "$overlay" | sed -n 's/^backing file: //p'
+}
+
+domain_xml() {
+    local memory=$1 vcpus=$2
+    # The firmware selection and the enrolled keys give the Secure Boot that
+    # the guest image needs: the guest boots through the signed shim. SMM must
+    # be on for the Secure Boot firmware. host-passthrough gives the guest the
+    # CPU features of the host, and with them nested virtualization.
+    cat <<EOF
+<domain type='kvm'>
+  <name>$name</name>
+  <memory unit='MiB'>$memory</memory>
+  <vcpu>$vcpus</vcpu>
+  <os firmware='efi'>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <firmware>
+      <feature enabled='yes' name='enrolled-keys'/>
+      <feature enabled='yes' name='secure-boot'/>
+    </firmware>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <smm state='on'/>
+  </features>
+  <cpu mode='host-passthrough' check='none'/>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='$overlay'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='raw'/>
+      <source file='$data'/>
+      <target dev='vdb' bus='virtio'/>
+    </disk>
+    <interface type='network'>
+      <source network='quarry'/>
+      <mac address='$mac'/>
+      <model type='virtio'/>
+    </interface>
+    <serial type='pty'>
+      <target type='isa-serial' port='0'>
+        <model name='isa-serial'/>
+      </target>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <channel type='unix'>
+      <target type='virtio' name='org.qemu.guest_agent.0'/>
+    </channel>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
+    <memballoon model='none'/>
+  </devices>
+</domain>
+EOF
+}
+
+remove_unfinished_create() {
+    if (( create_done == 0 )); then
+        rm -f -- "$overlay" "$data"
+    fi
+}
+
+cmd_create() {
+    local base='' memory=10240 vcpus=6 data_gib=200 xml_file
+    while (( $# > 0 )); do
+        case $1 in
+            --base) need_value "$1" $#; base=$2; shift 2 ;;
+            --memory) need_value "$1" $#; memory=$2; shift 2 ;;
+            --vcpus) need_value "$1" $#; vcpus=$2; shift 2 ;;
+            --data-size) need_value "$1" $#; data_gib=$2; shift 2 ;;
+            *) die "unknown option for create: $1" ;;
+        esac
+    done
+    [[ -n $base ]] || die "create needs --base FILE"
+    require_base "$base"
+    base=$(realpath -- "$base")
+    require_number --memory "$memory" 512
+    require_number --vcpus "$vcpus" 1
+    require_number --data-size "$data_gib" 1
+
+    domain_exists && die "the guest $name exists already"
+    [[ ! -e $overlay && ! -e $data ]] || die "the disk files exist already: $overlay, $data"
+
+    install -d -m 0755 "$images_dir"
+    trap remove_unfinished_create EXIT
+    make_overlay "$base"
+    truncate -s "${data_gib}G" "$data"
+    # The lazy options leave the inode tables and the journal unwritten, so
+    # the new file stays sparse and the command is fast.
+    mke2fs -q -F -t ext4 -L data -E lazy_itable_init=1,lazy_journal_init=1 "$data"
+
+    xml_file=$(mktemp)
+    domain_xml "$memory" "$vcpus" > "$xml_file"
+    virsh_system define "$xml_file" >/dev/null
+    rm -f -- "$xml_file"
+    create_done=1
+    trap - EXIT
+    echo "Defined the guest $name. Start it with: quarry-guest start" >&2
+}
+
+cmd_start() {
+    require_domain
+    virsh_system start "$name" >/dev/null
+}
+
+cmd_stop() {
+    local timeout=120 waited=0
+    while (( $# > 0 )); do
+        case $1 in
+            --timeout) need_value "$1" $#; timeout=$2; shift 2 ;;
+            *) die "unknown option for stop: $1" ;;
+        esac
+    done
+    require_number --timeout "$timeout" 1
+    require_domain
+    if [[ $(domain_state) == "shut off" ]]; then
+        return 0
+    fi
+    virsh_system shutdown "$name" >/dev/null
+    while (( waited < timeout )); do
+        if [[ $(domain_state) == "shut off" ]]; then
+            return 0
+        fi
+        sleep 2
+        waited=$(( waited + 2 ))
+    done
+    echo "quarry-guest: the guest did not stop in $timeout seconds. Forcing it off." >&2
+    virsh_system destroy "$name" >/dev/null
+}
+
+cmd_reset() {
+    local base=''
+    while (( $# > 0 )); do
+        case $1 in
+            --base) need_value "$1" $#; base=$2; shift 2 ;;
+            *) die "unknown option for reset: $1" ;;
+        esac
+    done
+    require_domain
+    require_stopped
+    [[ -f $overlay ]] || die "the system overlay is missing: $overlay"
+    if [[ -z $base ]]; then
+        base=$(base_of_overlay)
+        [[ -n $base ]] || die "cannot read the base image from $overlay. Use --base FILE"
+    fi
+    require_base "$base"
+    base=$(realpath -- "$base")
+    rm -f -- "$overlay"
+    make_overlay "$base"
+    echo "Replaced the system overlay of $name. The data disk is unchanged." >&2
+}
+
+cmd_snapshot() {
+    local stamp copy
+    require_domain
+    require_stopped
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    copy=$images_dir/$name-data-$stamp.img
+    [[ ! -e $copy ]] || die "the file exists already: $copy"
+    # A reflink copy shares the extents of the source, including its holes. cp
+    # does not accept --sparse=always together with --reflink=always.
+    cp --reflink=always -- "$data" "$copy"
+    echo "$copy"
+}
+
+cmd_status() {
+    local state=undefined base=''
+    if domain_exists; then
+        state=$(domain_state)
+    fi
+    if [[ -f $overlay ]]; then
+        base=$(base_of_overlay)
+    fi
+    echo "guest: $name"
+    echo "state: $state"
+    echo "system disk: $overlay"
+    echo "base image: ${base:-none}"
+    echo "data disk: $data"
+}
+
+main() {
+    local command=${1:-}
+    case $command in
+        -h | --help | help) usage; return 0 ;;
+        create | start | stop | reset | snapshot | status) shift ;;
+        *) usage >&2; return 1 ;;
+    esac
+    (( EUID == 0 )) || die "run this command as root (use sudo)"
+    if [[ -r $name_file ]]; then
+        read -r name < "$name_file"
+    fi
+    [[ $name =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] || die "the guest name is not valid: $name"
+    overlay=$images_dir/$name-system.qcow2
+    data=$images_dir/$name-data.img
+    "cmd_$command" "$@"
+}
+
+main "$@"

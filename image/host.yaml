@@ -12,6 +12,7 @@
 {{- $admin_ssh_key := or .admin_ssh_key "" }}
 {{- $sudo_mode := or .sudo_mode "agent" }}
 {{- $host_name := or .host_name "quarry-host" }}
+{{- $guest_name := or .guest_name "quarry-guest" }}
 {{- $image_size := or .image_size "34GB" }}
 {{- $mirror := or .mirror "http://deb.debian.org/debian/" }}
 {{- $kernel_cmdline_extra := or .kernel_cmdline_extra "" }}
@@ -143,6 +144,21 @@ actions:
       echo "Writing /etc/quarry/shim-remove-signature"
       install -v -d /etc/quarry
       echo '{{ $shim_remove_signature }}' > /etc/quarry/shim-remove-signature
+
+  # quarry-guest reads the name. The address is the DHCP reservation in the
+  # quarry network (overlays/host/etc/libvirt/qemu/networks/quarry.xml). A name
+  # in /etc/hosts is enough, because only the host connects to the guest. A
+  # computer on the LAN reaches the guest through the host (ssh -J).
+  - action: run
+    description: Record the name of the guest and give it an address in /etc/hosts
+    chroot: true
+    command: |
+      set -e
+      echo "Writing /etc/quarry/guest-name"
+      install -v -d /etc/quarry
+      echo '{{ $guest_name }}' > /etc/quarry/guest-name
+      echo "Adding the guest to /etc/hosts"
+      echo '10.250.0.10 {{ $guest_name }}' >> /etc/hosts
 
   - action: run
     description: Set host name, locale, and time zone

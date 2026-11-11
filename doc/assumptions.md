@@ -25,7 +25,6 @@ The git history keeps the deleted rows.
 | A08 | On Debian, QEMU runs as an unprivileged user with a security profile. | passthrough | Check the process owner and `aa-status`. |
 | A09 | The overlay and data-disk design works as written: the overlay uses the base image as its backing file, the SSH host keys live on the data disk, and `first-boot.service` does not replace them. | guest-storage | Build the guest image and reset the overlay (rollout stage 3). |
 | A10 | oe-core ships `scripts/sstate-cache-management.sh`. | guest-storage | Look in an oe-core tree. |
-| A11 | On XFS, `cp --reflink=always` of a data disk is instant and uses almost no space. | guest-storage | Run it on the `vmdata` partition. |
 | A12 | The libvirt managed save and hibernate do not work with passthrough devices. | guest-storage | Run `virsh managedsave` with both cards attached. |
 | A13 | `BB_NO_NETWORK` with a pre-filled download directory is a workable way to limit egress for an unattended run. | network | Run a build with the variable set. |
 | A14 | The Tailscale policy example in the network doc is valid as written. | network | Run the policy tests in the Tailscale console. |

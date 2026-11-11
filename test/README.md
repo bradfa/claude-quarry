@@ -84,9 +84,12 @@ tests add the 2023 CA to a copy of it with `virt-fw-vars`.
 
 ## Only the guest setup tests
 
-Build the host image first (`BUILD_CONF=image/build/test.conf image/build.sh host`).
-Then run only the guest setup tests. They write their own result file, so they
-do not replace `junit.xml`:
+Build the host image and the guest image first
+(`BUILD_CONF=image/build/test.conf image/build.sh host guest`). The test host
+gets the guest image as a second, read-only disk, and it needs `/dev/kvm` with
+nested virtualization for the guest that it starts. Then run only the guest
+setup tests. They write their own result file, so they do not replace
+`junit.xml`:
 
 ```
 BUILD_CONF=image/build/test.conf test/.venv/bin/python -m pytest \

@@ -124,6 +124,7 @@ build_host() {
         -t "admin_ssh_key:$admin_ssh_key" \
         -t "sudo_mode:$SUDO_MODE" \
         -t "host_name:$HOST_NAME" \
+        -t "guest_name:$GUEST_NAME" \
         -t "image_size:$IMAGE_SIZE" \
         -t "mirror:$MIRROR" \
         -t "kernel_cmdline_extra:$KERNEL_CMDLINE_EXTRA" \

@@ -28,9 +28,9 @@ work and the login. All points on this page are design intent. None is tested
   - Treat the finished file as immutable. A rebuild makes a new file with a new
     name.
 - **Session overlay.** A qcow2 file with the base image as its backing file. All
-  system writes of the guest go to the overlay. To recover, delete the overlay
-  and make a new one. The base image must never change while an overlay depends
-  on it.
+  system writes of the guest go to the overlay. To recover, run
+  `quarry-guest reset`. It replaces the overlay and keeps the data disk. The
+  base image must never change while an overlay depends on it.
 - **Data disk.** A second virtual disk, formatted ext4 and mounted at `/data` in
   the guest. It holds the workspace, the Yocto download directory, the sstate
   cache, the Claude configuration directory (`/data/claude-config`, see
@@ -39,6 +39,14 @@ work and the login. All points on this page are design intent. None is tested
   a reset. `first-boot.service` runs
   again after every overlay reset, so the SSH host keys must live on the data
   disk. Otherwise the host sees a new key after each reset.
+- **The `quarry-guest` command.** The host image has `/usr/sbin/quarry-guest`
+  for the admin account (with `sudo`). `create --base FILE` makes the overlay and
+  an empty data disk in `/var/lib/libvirt/images`, and defines the libvirt
+  domain. `start`, `stop`, `reset`, `snapshot`, and `status` do the rest. The
+  domain has a fixed MAC address, and the `quarry` network gives it the fixed
+  address `10.250.0.10`. The host resolves the guest name through `/etc/hosts`.
+  The defaults are 10 GiB of RAM, 6 vCPUs, and a 200 GiB data disk. The options
+  `--memory`, `--vcpus`, and `--data-size` change them.
 - **No sharing at first.** Guests do not share downloads or sstate. Each guest
   fetches over the NAT network. The download directory needs no cleanup,
   because a rebuilt data disk starts empty. sstate expiry belongs in each
@@ -46,9 +54,10 @@ work and the login. All points on this page are design intent. None is tested
   `scripts/sstate-cache-management.sh` [A10]. The size of the data disk is the
   system-level limit.
 - **Snapshots.** Before a risky experiment, add a new overlay on top of the
-  current one. Before each session, copy the data disk while the guest is
-  stopped. On XFS, `cp --reflink=always` should be instant and use almost no
-  space [A11]. Saving the full guest state to disk (libvirt managed save,
+  current one. Before each session, run `quarry-guest snapshot` while the guest
+  is stopped. It copies the data disk with `cp --reflink=always`. On the XFS
+  partition, the copy shares its blocks with the data disk, so it needs almost
+  no space. Saving the full guest state to disk (libvirt managed save,
   hibernate) probably does not work with passthrough devices, so do not plan on
   it [A12].
 - **Backup.** Copy the data disk while the guest is stopped, or use rsync to

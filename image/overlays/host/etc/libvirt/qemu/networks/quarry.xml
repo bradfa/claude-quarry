@@ -5,6 +5,9 @@
   <ip address='10.250.0.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='10.250.0.100' end='10.250.0.200'/>
+      <!-- The guest always gets this address. quarry-guest gives the guest
+           this MAC address. The name is in /etc/hosts of the host. -->
+      <host mac='52:54:00:71:00:10' ip='10.250.0.10'/>
     </dhcp>
   </ip>
 </network>
