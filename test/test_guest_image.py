@@ -20,7 +20,7 @@ import time
 import pytest
 
 from helpers import EFI_SYSTEM, LINUX_ROOT_X86_64, GIB, failed_units
-from vm import BOOT_TIMEOUT, data_disk_args, make_data_disk
+from vm import BOOT_TIMEOUT, HAS_KVM, data_disk_args, make_data_disk
 
 CONFIG_DIR = "/data/claude-config"
 HOST_KEY = "/data/etc/ssh/ssh_host_ed25519_key"
@@ -155,9 +155,11 @@ def test_4_01_both_accounts_log_in(guest_a, settings):
     assert check_as_claude(guest_a, settings, "id -un").stdout.strip() == settings.claude_user
 
 
-def test_4_02_claude_is_in_no_group(guest_a, settings):
+def test_4_02_claude_is_in_the_kvm_group_only(guest_a, settings):
+    # The kvm group gives /dev/kvm (see test 8.5). No other group is allowed,
+    # especially not sudo and disk.
     groups = check_as_claude(guest_a, settings, "id -Gn").stdout.split()
-    assert groups == [settings.claude_user], groups
+    assert sorted(groups) == sorted([settings.claude_user, "kvm"]), groups
 
 
 def test_4_03_admin_is_in_sudo_group(guest_a, settings):
@@ -415,6 +417,31 @@ def test_8_04_claude_can_commit(guest_a, settings):
         guest_a, settings,
         "rm -rf /tmp/repo && git init -q /tmp/repo && cd /tmp/repo && echo x > f && git add f "
         "&& git -c user.name=t -c user.email=t@example.com commit -q -m test")
+
+
+@pytest.mark.skipif(not HAS_KVM, reason="the machine that runs the tests has no /dev/kvm to pass on")
+def test_8_05_claude_can_use_kvm(guest_a, settings):
+    # Without nested virtualization the guest has no /dev/kvm, and a test VM or
+    # runqemu falls back to slow emulation (open question Q15).
+    check_as_claude(guest_a, settings, "test -r /dev/kvm -a -w /dev/kvm")
+    assert guest_a.check("stat -c %G /dev/kvm").stdout.strip() == "kvm"
+
+
+@pytest.mark.skipif(not HAS_KVM, reason="the machine that runs the tests has no /dev/kvm to pass on")
+def test_8_06_claude_can_run_a_kvm_virtual_machine(guest_a, settings):
+    check_as_claude(guest_a, settings, "command -v qemu-system-x86_64")
+    # "-accel kvm" has no fallback: QEMU stops when KVM does not work. The
+    # kernel has no initrd and no disk, so it stops at the missing root file
+    # system. That message shows that the CPU ran the kernel to the end of its
+    # start. The panic option and -no-reboot end QEMU at once.
+    result = as_claude(
+        guest_a, settings,
+        "timeout 120 qemu-system-x86_64 -accel kvm -cpu host -m 512 -display none -no-reboot "
+        "-serial stdio -kernel \"$(ls /boot/vmlinuz-* | sort -V | tail -n 1)\" "
+        "-append 'console=ttyS0 panic=-1' < /dev/null",
+        timeout=150)
+    assert "Unable to mount root fs" in result.stdout, (
+        f"exit code: {result.returncode}\nstdout: {result.stdout[-2000:]}\nstderr: {result.stderr}")
 
 
 # Step 9: reboot of the first machine
