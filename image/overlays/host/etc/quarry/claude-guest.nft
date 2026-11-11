@@ -1,0 +1,56 @@
+# Firewall rules for the traffic of the guest (see doc/design/network.md).
+#
+# The rules are in their own table, so they do not touch the tables of libvirt
+# and Tailscale. A drop in any base chain ends the packet, and an accept in a
+# chain of another table does not undo it. Both chains use the accept policy,
+# because they must not change the traffic of other sources. The rules match on
+# the bridge of the quarry network, and they return for every other interface.
+#
+# The first two lines make a reload safe: they make the table if it is missing
+# and delete it, and the table block then makes it again in the same
+# transaction.
+
+add table inet claude_guest
+delete table inet claude_guest
+
+table inet claude_guest {
+    # The counters show which rule dropped a packet. The tests read them.
+    counter host_input { }
+    counter not_uplink { }
+    counter private_ranges { }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+
+        iifname != "virbr-quarry" return
+        ct state established,related accept
+        # The guest asks the dnsmasq of libvirt for DNS and DHCP. The address
+        # match keeps the DNS port of the other host addresses closed. A DHCP
+        # request goes to the broadcast address.
+        ip daddr { 10.250.0.1, 255.255.255.255 } udp dport { 53, 67 } accept
+        ip daddr 10.250.0.1 tcp dport 53 accept
+        counter name host_input drop
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+
+        # No rule accepts established traffic here. The return traffic of the
+        # guest comes in on the uplink, so the return above skips it. A rule
+        # for the guest side would let a flow that began while the table was
+        # absent skip the drops below.
+        iifname != "virbr-quarry" return
+        # The wired interfaces of the host match en*, as in the systemd-networkd
+        # file of the image. The name of the uplink changes from host to host.
+        # This rule drops tailscale0, the other bridges, and every other
+        # interface.
+        oifname != "en*" counter name not_uplink drop
+        # Private ranges and the office LAN, the tailnet (CGNAT and its IPv6
+        # ULA range), link-local ranges, multicast, and reserved ranges. The
+        # LAN is in these ranges when it uses private addresses. A LAN with
+        # public addresses is not in them.
+        ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16,
+                   172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16, 224.0.0.0/3 } counter name private_ranges drop
+        ip6 daddr { ::1, fc00::/7, fe80::/10, ff00::/8 } counter name private_ranges drop
+    }
+}

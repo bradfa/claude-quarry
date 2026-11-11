@@ -1,0 +1,20 @@
+[Unit]
+Description=Firewall rules for the traffic of the guest
+Documentation=file:///etc/quarry/claude-guest.nft
+# The rules must be in place before the network starts and before libvirt
+# starts the quarry network.
+DefaultDependencies=no
+Before=network-pre.target libvirtd.service
+Wants=network-pre.target
+After=local-fs.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/quarry/claude-guest.nft
+ExecReload=/usr/sbin/nft -f /etc/quarry/claude-guest.nft
+ExecStop=/usr/sbin/nft delete table inet claude_guest
+
+[Install]
+WantedBy=multi-user.target

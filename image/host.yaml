@@ -223,12 +223,17 @@ actions:
       visudo -cf /etc/sudoers.d/10-quarry-nopasswd
 {{ end }}
 
+  # quarry-firewall.service loads the rules of the guest into their own table.
+  # The stock nftables.service must stay off: /etc/nftables.conf starts with
+  # "flush ruleset", and a restart of that service would delete the tables of
+  # libvirt and Tailscale.
   - action: run
     description: Enable services
     chroot: true
     command: |
       set -e
-      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service quarry-login-banner.service libvirtd.service libvirt-guests.service
+      systemctl enable systemd-networkd.service systemd-resolved.service chrony.service ssh.service first-boot.service quarry-login-banner.service libvirtd.service libvirt-guests.service quarry-firewall.service
+      systemctl disable nftables.service
       systemctl mask systemd-firstboot.service
 
   - action: run
