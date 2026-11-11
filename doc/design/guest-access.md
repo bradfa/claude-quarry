@@ -88,8 +88,9 @@ Host quarry-guest-admin
   repository that reads files which Claude controls.
 - The admin account never attaches to the tmux session of the Claude account.
 - The Claude account is in the `kvm` group and in no other group. It is never in
-  the `sudo` group, and never in the `disk` group. The `disk` group gives raw access to the disks of the guest, including
-  the data disk with the Claude login.
+  the `sudo` group, and never in the `disk` group. The `disk` group gives raw
+  access to the disks of the guest, including the data disk with the Claude
+  login.
 
 ## Root work without `sudo`
 
