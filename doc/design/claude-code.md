@@ -257,7 +257,7 @@ repository in the guest. The owner fetches the commits from the guest on the
 daily machine, reviews them, and pushes them from there:
 
 ```
-git remote add quarry ssh://quarry-guest/workspace/repo
+git remote add quarry ssh://quarry-guest/data/workspace/repo
 git fetch quarry
 git push origin quarry/branch:branch
 ```

@@ -32,13 +32,16 @@ work and the login. All points on this page are design intent. None is tested
   `quarry-guest reset`. It replaces the overlay and keeps the data disk. The
   base image must never change while an overlay depends on it.
 - **Data disk.** A second virtual disk, formatted ext4 and mounted at `/data` in
-  the guest. It holds the workspace, the Yocto download directory, the sstate
-  cache, the Claude configuration directory (`/data/claude-config`, see
-  `claude-code.md`), and the SSH host keys. The home directory of the Claude
-  account stays on the overlay. The Claude login and the guest identity survive
-  a reset. `first-boot.service` runs
-  again after every overlay reset, so the SSH host keys must live on the data
-  disk. Otherwise the host sees a new key after each reset.
+  the guest. It holds the workspace (`/data/workspace`, owned by the Claude
+  account), the Yocto download directory, the sstate cache, the Claude
+  configuration directory (`/data/claude-config`, see `claude-code.md`), and the
+  SSH host keys. The Yocto directories are subdirectories of the workspace, and
+  Claude makes them. `/data` itself belongs to root, so Claude cannot rename or
+  replace its configuration directory. The home directory of the Claude account
+  stays on the overlay. The Claude login and the guest identity survive a reset.
+  `first-boot.service` runs again after every overlay reset, so the SSH host
+  keys must live on the data disk. Otherwise the host sees a new key after each
+  reset.
 - **The `quarry-guest` command.** The host image has `/usr/sbin/quarry-guest`
   for the admin account (with `sudo`). `create --base FILE` makes the overlay and
   an empty data disk in `/var/lib/libvirt/images`, and defines the libvirt
