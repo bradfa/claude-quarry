@@ -23,6 +23,7 @@ from helpers import EFI_SYSTEM, LINUX_ROOT_X86_64, GIB, failed_units
 from vm import BOOT_TIMEOUT, HAS_KVM, data_disk_args, make_data_disk
 
 CONFIG_DIR = "/data/claude-config"
+WORKSPACE = "/data/workspace"
 HOST_KEY = "/data/etc/ssh/ssh_host_ed25519_key"
 SECURE_BOOT_VARIABLE = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
 
@@ -310,6 +311,21 @@ def test_5_06_host_keys_are_on_the_data_disk(guest_a):
 
 def test_5_07_claude_cannot_read_the_host_key(guest_a, settings):
     assert as_claude(guest_a, settings, f"test -r {HOST_KEY}").returncode != 0
+
+
+def test_5_08_claude_works_in_the_workspace(guest_a, settings):
+    out = guest_a.check_sudo(f"stat -c '%U:%G %a' {WORKSPACE}").stdout.strip()
+    assert out == f"{settings.claude_user}:{settings.claude_user} 755"
+    check_as_claude(guest_a, settings, f"touch {WORKSPACE}/probe && rm {WORKSPACE}/probe")
+
+
+def test_5_09_data_disk_root_belongs_to_root(guest_a, settings):
+    # With a root-owned /data, Claude cannot rename or replace its own
+    # configuration directory.
+    assert guest_a.check("stat -c '%U:%G %a' /data").stdout.strip() == "root:root 755"
+    assert as_claude(guest_a, settings, "touch /data/probe").returncode != 0
+    assert as_claude(guest_a, settings, f"mv {CONFIG_DIR} {CONFIG_DIR}.moved").returncode != 0
+    guest_a.check_sudo(f"test -d {CONFIG_DIR}")
 
 
 # Step 6: Claude Code and the updates
