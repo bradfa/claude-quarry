@@ -250,6 +250,23 @@ the mode of `.credentials.json`.
 The owner connects over SSH and starts tmux inside the guest (`tmux new -A -s
 main`), so the session survives disconnects.
 
+## Start a project
+
+Use a public repository. The clone needs no credential, and the guest has none.
+Log in as the Claude account, and clone into the workspace on the data disk:
+
+```
+cd /data/workspace
+git clone https://github.com/OWNER/REPO.git
+```
+
+- Do not clone into the home directory. The home directory is on the overlay,
+  and `quarry-guest reset` removes it. The workspace survives a reset.
+- The clone keeps `origin` as a remote, but a push from the guest fails
+  because the guest has no credential. This is intended. The owner fetches the
+  commits (see "Publish the work").
+- These commands have not run on a real guest yet.
+
 ## Publish the work
 
 The guest holds no git credential, so Claude cannot push. Claude commits to a
