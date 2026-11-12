@@ -20,5 +20,13 @@
   "syncClaudeAiPlugins": false,
   "syncClaudeAiSkills": false,
   "disableClaudeAiConnectors": true,
-  "forceLoginMethod": "claudeai"
+  "forceLoginMethod": "claudeai",
+  "env": {
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  }
 }

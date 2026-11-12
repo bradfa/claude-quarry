@@ -56,8 +56,7 @@ access.
 Overnight runs and daytime work share the weekly quota, so the owner must watch
 `/usage`. The CLI reference lists no command that prints usage outside a
 session, so a host script cannot read the quota. The documentation does not say
-when the 5-hour window starts. Nobody knows if Haiku usage counts differently on
-Teams [Q9].
+when the 5-hour window starts.
 
 ## Auto mode stalls
 

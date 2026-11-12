@@ -1,0 +1,19 @@
+{
+  "model": "sonnet",
+  "effortLevel": "medium",
+  "editorMode": "vim",
+  "feedbackDrafts": "off",
+  "promptSuggestionEnabled": false,
+  "awaySummaryEnabled": false,
+  "showClearContextOnPlanAccept": true,
+  "dialogExpiry": "never",
+  "showThinkingSummaries": true,
+  "idleCompaction": false,
+  "autoCompactEnabled": false,
+  "switchModelsOnFlag": false,
+  "autoContinueAtUsageLimit": false,
+  "fileCheckpointingEnabled": false,
+  "useAutoModeDuringPlan": true,
+  "enableArtifact": true,
+  "remoteControlAtStartup": true
+}

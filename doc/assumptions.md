@@ -31,7 +31,6 @@ The git history keeps the deleted rows.
 | A16 | Claude Code has no built-in run-time limit. | run-control | Read the documentation of each pinned release. Run a long session. |
 | A17 | The QEMU guest agent or `chrony` corrects the guest clock after a long suspend. | run-control | Suspend the guest, wait, resume it, and read the clock. |
 | A18 | Claude Code refuses `--dangerously-skip-permissions` as root, and bitbake refuses to run as root. | claude-code | Try both as root in the guest. |
-| A20 | Haiku 5.5 works in auto mode on a Teams account. | claude-code | Start auto mode with Haiku on the account. |
 | A21 | Hardware steps that need root fail under the Claude Code sandbox. | claude-code | Run one such step (for example `modprobe`) in a sandboxed session. |
 | A22 | A Claude Code session reads a changed `CLAUDE.md` after a restart or a resume. | claude-code | Change the file, resume the session, and ask Claude about it. |
 | A23 | The `/dev/serial/by-path` names include the physical port of the xHCI card, so udev rules can use them. | hil-services | Plug in the adapters and list the names. |
@@ -49,6 +48,7 @@ The git history keeps the deleted rows.
 | A37 | The `.local` name of the host resolves on the LAN of the owner, and the router does not drop multicast. | host-baseline | Run `ssh -A <user>@<host name>.local` from the daily machine (`test/manual/real-host.md`, check 2.9). |
 | A38 | `efi-updatevar` can write `db`, `KEK`, and then `PK` on the AMI firmware of the HP EliteDesk in Setup Mode, and the host then boots with Secure Boot on. The virtual machine tests show it with OVMF only. | host-baseline | Run `sudo quarry-enroll-secure-boot-keys` on the real host (`test/manual/real-host.md`, section 4). Reboot, and run `mokutil --sb-state`. |
 | A39 | Each new `shim-signed` package keeps the signature that `SHIM_REMOVE_SIGNATURE` keeps, so the script finds a signature to remove and the host still boots. | host-baseline | Read the `shim-signed` changelog before each update, and build an image after it. `quarry-shim-signature` writes a warning if the signature is missing. |
+| A40 | Every key in `doc/examples/claude-user-settings.json` is valid in the Claude Code release of the guest, and the user file applies, because the managed file sets none of those keys. | claude-code | Copy the file to `/data/claude-config/settings.json` in a guest. Start Claude Code. Check vim mode, the model and effort, `enableArtifact`, and `remoteControlAtStartup`. Run `claude doctor` and read the warnings. |
 
 ## Open questions
 
@@ -61,7 +61,6 @@ The git history keeps the deleted rows.
 | Q6 | Does the real firmware of the host boot the host image and the installer through the removable-media path? The OVMF firmware of the virtual machine does. | host-baseline | Boot the installer on the real host. |
 | Q7 | How does bitbake behave across `virsh suspend` and resume, including fetches in progress and `BB_SERVER_TIMEOUT`? | run-control | Suspend during a build. |
 | Q8 | Does a background bitbake task that finishes after the Escape key wake Claude Code and use quota? | run-control | Test one interrupted run. |
-| Q9 | Does Haiku usage count differently from other models against the weekly quota on Teams? | run-control | Read `/usage` before and after a Haiku session. |
 | Q10 | Does a local `directory` marketplace at `/opt/claude-marketplace` work with the managed keys (`extraKnownMarketplaces`, `strictKnownMarketplaces`, `enabledPlugins`) and with `strictPluginOnlyCustomization`? The docs say that such a plugin loads in place. The fallback is a read-only seed directory (`CLAUDE_CODE_PLUGIN_SEED_DIR`). | claude-code | Test it in the guest with a plugin that has a skill and a hook. |
 | Q11 | What does the `autoMode.environment` guidance need to say? | claude-code | Read the auto mode configuration page. |
 | Q12 | Which switches turn off telemetry and error reporting but keep auto-updates and feature flags, and does auto mode work with them? | claude-code | Read the environment variable page. Test auto mode with the switches set. |

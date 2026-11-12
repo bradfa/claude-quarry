@@ -9,7 +9,7 @@ directory that the host keeps up to date.
 | Topic | Decision | Note |
 | --- | --- | --- |
 | Plan | The Teams subscription of the owner, and nothing else. The limit is the 5-hour and the weekly quota, not money. No per-token billing, no API key, and no special account. | See `run-control.md` |
-| Model | Haiku 5.5 with high thinking, used outside working hours. | Haiku 5.5 is listed as supported in auto mode on the Anthropic API. The documentation does not list Team accounts separately [A20]. |
+| Model | Sonnet with medium effort, set in the user settings file. | Auto mode works with Sonnet on the Teams account (seen in `/status` and the prompt bar of the real guest on 2026-11-12). See User settings. |
 | Unattended use | The owner states that unattended use is normal on Teams. The owner attends at the start and at the end of each session. | The Anthropic legal page says that OAuth login supports "ordinary use" and that Anthropic may enforce its rules without notice. Keep this note [Q14]. |
 | Classifier cost | The owner states that classifier calls do not count against quota on Teams. | The documentation lists classifier calls as counted for Enterprise and API accounts. It does not list Team. The classifier runs on Sonnet 5 by default. |
 | Permissions | Auto mode with written guidance. No hard allow, ask, or deny rules. | See Permissions below. |
@@ -194,6 +194,12 @@ Keys of the managed settings:
   account of the owner could bring its connectors and synced items into the
   guest. The guest must not have them.
 - `forceLoginMethod: "claudeai"` (see Login).
+- `env.CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1"` turns off the "How is Claude
+  doing?" surveys. `env.CLAUDE_CODE_ATTRIBUTION_HEADER: "0"` removes the
+  attribution block from the system prompt. `attribution` with an empty
+  `commit` and an empty `pr` removes the trailer from commits and the text from
+  pull requests. The documentation does not say how a managed `env` block and a
+  user `env` block combine, so the user settings file has no `env` block.
 
 A managed file has a limit. By default, Claude Code uses only the highest-ranked
 managed source. If the admin console of the Teams organization delivers any
@@ -206,6 +212,36 @@ nothing. Check `/status` in the guest after the first login. The line
 The option `forceLoginOrgUUID` (only logins of the company organization work) is
 not in the design. It needs a build variable with the organization ID. The owner
 can decide later.
+
+## User settings
+
+The file `doc/examples/claude-user-settings.json` holds the preferences of the
+owner. It is not in the image. Copy it to the data disk once, from the daily
+machine. The file survives a reset, because it is on the data disk:
+
+```
+scp doc/examples/claude-user-settings.json \
+    quarry-guest:/data/claude-config/settings.json
+```
+
+- A managed value ranks above a user value for the same key. A user value
+  applies only when the managed file does not set the key. Claude Code shows no
+  warning when a managed value hides a user value. Do not set a key in both
+  files.
+- The file holds preferences only. The Claude account can edit it, so a key
+  with a security meaning does not belong in it. The managed settings drop
+  `hooks`, `enabledPlugins`, and the permission rules from this file. With
+  `allowManagedHooksOnly`, only a managed `statusLine` runs.
+- `model` is only in this file. The documentation of Claude Code says two
+  different things about a managed `model`, so do not set it in the managed
+  file.
+- The file has no `autoUpdatesChannel` and no `minimumVersion`. The apt
+  repository chooses the channel (see Install).
+- The model in the file (Sonnet, medium effort) is the default for all
+  sessions (see Decisions).
+- `enableArtifact` and `remoteControlAtStartup` are `true`. Both are `false` on
+  the daily machine of the owner.
+- Nobody has tested this file in a guest [A40].
 
 ## Provisioning script
 

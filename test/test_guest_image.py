@@ -20,6 +20,7 @@ import time
 import pytest
 
 from helpers import EFI_SYSTEM, LINUX_ROOT_X86_64, GIB, failed_units
+from settings import REPO
 from vm import BOOT_TIMEOUT, HAS_KVM, data_disk_args, make_data_disk
 
 CONFIG_DIR = "/data/claude-config"
@@ -396,6 +397,21 @@ def test_7_02_managed_settings_content(guest_a):
     assert managed["allowManagedHooksOnly"] is True
     assert managed["strictKnownMarketplaces"] == []
     assert "$defaults" in managed["autoMode"]["environment"]
+    assert managed["env"]["CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY"] == "1"
+    assert managed["env"]["CLAUDE_CODE_ATTRIBUTION_HEADER"] == "0"
+    assert managed["attribution"] == {"commit": "", "pr": ""}
+
+
+def test_7_02a_user_settings_example_has_preferences_only():
+    # A key in both files hides the user value without a warning, and the
+    # managed settings drop hooks, plugins, and permission rules from the user
+    # file. The file must hold none of these, and must not repeat a managed key.
+    managed = json.loads((REPO / "image/overlays/guest/etc/claude-code/managed-settings.json").read_text())
+    user = json.loads((REPO / "doc/examples/claude-user-settings.json").read_text())
+    assert not set(user) & set(managed), set(user) & set(managed)
+    not_for_user_file = {"hooks", "enabledPlugins", "permissions", "sandbox", "statusLine", "env",
+                         "autoUpdatesChannel", "minimumVersion"}
+    assert not set(user) & not_for_user_file, set(user) & not_for_user_file
 
 
 def test_7_03_marketplaces_are_locked(guest_a, settings):
