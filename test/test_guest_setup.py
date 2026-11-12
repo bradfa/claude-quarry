@@ -119,7 +119,8 @@ def test_1_04_state_is_on_vmdata(host):
 def test_1_05_images_directory_exists_before_the_first_guest(host):
     # The README copies the base image here before "quarry-guest create" runs.
     # Step 3 is the first test that makes a guest, so this check runs first.
-    assert host.check("stat -c '%U:%G %a' " + IMAGES_DIR).stdout.strip() == "root:root 755"
+    # Libvirt makes the directory when it starts, a few seconds after the boot.
+    wait_for_output(host, "stat -c '%U:%G %a' " + IMAGES_DIR, "root:root 755")
     target = host.check("findmnt -no TARGET -T " + IMAGES_DIR).stdout.strip()
     assert target == "/var/lib/libvirt"
 
