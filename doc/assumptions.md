@@ -23,7 +23,6 @@ The git history keeps the deleted rows.
 | A06 | A libvirt `hostdev` with `managed='yes'` detaches the card from the host driver at guest start and attaches it again at stop. | passthrough | Run start and stop cycles (rollout stage 5). |
 | A07 | VFIO pins all guest RAM, so ballooning and overcommit do not work. | passthrough | Check the host memory use of a running guest. |
 | A08 | On Debian, QEMU runs as an unprivileged user with a security profile. | passthrough | Check the process owner and `aa-status`. |
-| A09 | The overlay and data-disk design works as written: the overlay uses the base image as its backing file, the SSH host keys live on the data disk, and `first-boot.service` does not replace them. | guest-storage | Build the guest image and reset the overlay (rollout stage 3). |
 | A10 | oe-core ships `scripts/sstate-cache-management.sh`. | guest-storage | Look in an oe-core tree. |
 | A12 | The libvirt managed save and hibernate do not work with passthrough devices. | guest-storage | Run `virsh managedsave` with both cards attached. |
 | A13 | `BB_NO_NETWORK` with a pre-filled download directory is a workable way to limit egress for an unattended run. | network | Run a build with the variable set. |

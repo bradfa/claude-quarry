@@ -2,8 +2,8 @@
 
 The guest has a read-only base image, a throwaway overlay for the system, and a
 separate persistent data disk. A reset removes system damage, and it keeps the
-work and the login. All points on this page are design intent. None is tested
-[A09].
+work and the login. The reset works on the real host (tested on 2026-11-12).
+The other points on this page are design intent, and nobody has tested them.
 
 ## Design
 
