@@ -91,6 +91,7 @@ actions:
       - pciutils
       - qemu-system-x86
       - qemu-utils
+      - rsync
       - sbsigntool
       - sudo
       - systemd-repart
