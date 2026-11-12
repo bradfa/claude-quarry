@@ -46,16 +46,27 @@ The build writes the real user names. This is the client configuration on the
 daily machine:
 
 ```
+Host quarry-host
+    HostName quarry-host.local
+    User admin
+
 Host quarry-guest
     User claude
     ForwardAgent no
+    ProxyJump quarry-host
 
 Host quarry-guest-admin
     HostName quarry-guest
     User admin
     ForwardAgent yes
+    ProxyJump quarry-host
 ```
 
+- The guest has no address on the LAN. Its address is on the `quarry` network of
+  the host (see `network.md`), and only the host knows its name. `ProxyJump`
+  makes the host open the connection, so the host resolves the name. The host
+  only relays the connection. It never sees the agent, and the `ForwardAgent`
+  line applies to the guest.
 - `AllowUsers` lists exactly the two accounts.
 - `AuthorizedKeysFile` points to a directory that root owns. Claude cannot
   add a key to its own account, and it cannot change the options of a key. With
