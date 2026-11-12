@@ -68,7 +68,7 @@ the `libvirt` group. Run `virt-host-validate` to check the host.
 
 ## Reference host measurements
 
-These facts come from the discovery output of the reference host.
+These facts come from measurements on the reference host.
 
 - The kernel is 6.12.113. The kernel command line has no IOMMU option, and the
   kernel still built IOMMU groups.

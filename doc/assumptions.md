@@ -18,7 +18,7 @@ The git history keeps the deleted rows.
 | A01 | The guest disk I/O is slower than native I/O. | guest-storage | Time one build on the host and one in the guest. |
 | A02 | A member of the `libvirt` group has close to root access on the host. | passthrough | Read the libvirt documentation for the system daemon. Test what a group member can do. |
 | A03 | On the reference host, the first DMAR unit (`dmar0`) serves only the integrated graphics, and its pass-through bit is clear. | passthrough | Read `/sys/class/iommu/dmar0/devices` and the DMAR lines in `dmesg`. |
-| A04 | The new xHCI card appears behind root port 00:1c.0 in its own IOMMU group. | passthrough | Install the card and run the discovery script. |
+| A04 | The new xHCI card appears behind root port 00:1c.0 in its own IOMMU group. | passthrough | Install the card and read `/sys/kernel/iommu_groups/`. |
 | A05 | The libvirt packages load the `vfio` modules. | passthrough | Run `lsmod` after the libvirt install. |
 | A06 | A libvirt `hostdev` with `managed='yes'` detaches the card from the host driver at guest start and attaches it again at stop. | passthrough | Run start and stop cycles (rollout stage 5). |
 | A07 | VFIO pins all guest RAM, so ballooning and overcommit do not work. | passthrough | Check the host memory use of a running guest. |
@@ -55,7 +55,7 @@ The git history keeps the deleted rows.
 
 | ID | Question | Topic doc | How to answer |
 | --- | --- | --- | --- |
-| Q2 | What IOMMU group does the PCIe xHCI card get, and does it share a group with anything except its root port? Does it reset cleanly over many cycles? | passthrough | Install the card. Run the discovery script and the start and stop cycles. |
+| Q2 | What IOMMU group does the PCIe xHCI card get, and does it share a group with anything except its root port? Does it reset cleanly over many cycles? | passthrough | Install the card. Read `/sys/kernel/iommu_groups/` and run the start and stop cycles. |
 | Q3 | Does the added Ethernet card reset cleanly over many cycles, given that it has no function-level reset? | passthrough | Run the start and stop cycles. |
 | Q4 | Does the `claude_guest` table work beside Tailscale on a real host, and beside `libvirt_network`? The virtual machine tests (step 4 of `test_guest_setup.py`) cover only the second part. | network | On the real host, run `nft list ruleset` and probe the LAN, a tailnet address, and a host service from inside the guest. |
 | Q5 | Is 10 GiB of RAM and 6 vCPUs right for the guest, and how long do real builds take on the spinning disk? | passthrough | Time real builds. |
