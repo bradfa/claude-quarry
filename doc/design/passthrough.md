@@ -25,7 +25,7 @@ physical Ethernet card.
    - The second method binds at boot with `vfio-pci.ids`. It needs a softdep so
      that vfio-pci loads before the native driver.
 
-   The runbook uses the per-address method (the first one), because it is safe
+   This project uses the per-address method (the first one), because it is safe
    on other hardware too. The `vfio-pci.ids` method is safe on the reference
    host only, because the added card (8086:10d3) differs from the onboard I217
    (8086:153a).

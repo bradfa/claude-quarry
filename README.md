@@ -2,10 +2,10 @@
 
 claude-quarry lets Claude Code work alone on embedded Linux and Yocto jobs that
 need real hardware, and it keeps that work away from your own computer. It is a
-set of design documents, a runbook, and image recipes to set up a dedicated host
-PC. On that host, Claude Code runs inside a disposable KVM virtual machine. The
-virtual machine owns a USB controller and an Ethernet card, so Claude can reach
-serial adapters, SD card muxes, and boards on a bench.
+set of design documents, image recipes, and short deploy steps to set up a
+dedicated host PC. On that host, Claude Code runs inside a disposable KVM
+virtual machine. The virtual machine owns a USB controller and an Ethernet card,
+so Claude can reach serial adapters, SD card muxes, and boards on a bench.
 
 You set a goal with Claude, and then Claude works alone, usually outside working
 hours. Later, you review the result with Claude and approve it or ask for
@@ -53,16 +53,16 @@ output, must not reach any of these.
 | USB for the guest | A PCIe USB xHCI card in its own IOMMU group, for the USB-UART adapters, the SD card mux, and the USB product |
 | Software | Debian 13 on the host |
 | Claude Code | A Claude Code login. The design assumes a Teams plan |
-| Build machine | A machine with `debos`, `bmaptool`, and `zstd`, to build the images. This can be your daily computer |
+| Build machine | A machine with `debos`, `bmaptool`, `zstd`, and `rsync`, to build and copy the images. This can be your daily computer |
 | Image tests | `qemu-system-x86`, the `ovmf` package, and access to `/dev/kvm` |
 
 Check the IOMMU groups before you buy cards. `doc/design/passthrough.md` has the
-requirements, and the runbook will have a discovery script for your host.
+requirements. The groups are in `/sys/kernel/iommu_groups/` on any Linux host.
 
 ## Warning
 
-The host installer erases the whole target disk. The runbook will say this on its
-first page.
+The host installer erases the whole target disk. Check the disk name twice
+before you run it.
 
 ## Risks you accept
 
@@ -86,13 +86,9 @@ This project is in an early stage. Nothing has run on a real host yet.
 | Design documents | Written. Each unverified claim is in `doc/assumptions.md` |
 | Host baseline image | Builds. It passes the virtual machine tests in `test/` |
 | USB installer | Builds. It writes the host image in the virtual machine tests in `test/` |
-| Discovery script | Written. `host/discover.sh` only reads |
 | Guest image | Builds. It passes the virtual machine tests in `test/`. The checks that need a Claude login are still open (`test/manual/real-guest.md`) |
-| Runbook | Not written |
-| Passthrough, firewall, time limit | Design only. Nothing is tested |
-
-The runbook is written one step at a time. A person runs each step on a real
-host. The runbook marks a step as verified only after that run.
+| Guest start, network, firewall | Written. They pass the virtual machine tests in `test/` |
+| Passthrough, time limit | Design only. Nothing is tested |
 
 The rollout has eight stages. Each stage must pass its tests before the next one
 starts. Stages 0 to 4 need no passthrough cards.
@@ -152,12 +148,69 @@ Claude Code from `downloads.claude.ai`. The root account is locked, and password
 login is off, so the SSH key is the only way in. The guest has a second user for
 Claude, without sudo (`CLAUDE_USER`, see `image/build.conf.example`).
 
-If a PC shows a red "Secure Boot Violation: Invalid signature detected" box when
-you boot the installer, set `SHIM_REMOVE_SIGNATURE` in `image/build.conf`. Some
-older firmware rejects the Debian shim, which has two Microsoft signatures. The
-setting removes one of them in the installer and in the host image, and the host
-image removes it again after each package update. See `image/build.conf.example`
-and `doc/design/host-baseline.md`.
+The images use the Secure Boot of Debian: the signed Debian shim starts
+`systemd-boot`. Some older firmware rejects the shim, because it has two
+Microsoft signatures. Then the installer shows a red "Secure Boot Violation:
+Invalid signature detected" box. In that case, set `SHIM_REMOVE_SIGNATURE` in
+`image/build.conf`. The setting removes one of the signatures in the installer
+and in the host image, and the host image removes it again after each package
+update. See `image/build.conf.example` and `doc/design/host-baseline.md`.
+
+### Deploy to a real host
+
+These steps have not run on a real host yet. Delete this sentence after the
+first run. The checks for each step are in `test/manual/real-host.md` and
+`test/manual/real-guest.md`.
+
+1. Build the images (see above).
+2. On the build machine, find the USB stick with `lsblk`, and write the
+   installer to it:
+
+   ```
+   sudo bmaptool copy image/build/installer.img /dev/sdX
+   ```
+
+3. Boot the host PC from the stick, with a monitor and a keyboard. Run `lsblk`
+   to find the target disk, and then run `quarry-install /dev/<disk>`. The
+   installer erases that disk. When it ends with `Done.`, run `poweroff` and
+   remove the stick.
+4. Switch the host on. Log in from your daily machine with the `ssh -A` command
+   that the login prompt on the monitor shows.
+5. Copy the guest image to the host. The base image must stay in a place that
+   QEMU can read, and it must never change while a guest uses it. The image is
+   a sparse file. `scp` sends every empty block, so use `rsync`. The option
+   `-S` writes the empty blocks as holes on the host, and the compression makes
+   them small on the wire. `--ignore-existing` protects a base image that a
+   guest uses, because `rsync` skips a file that exists. Do not add
+   `--partial`. A cut transfer would then leave a short file with the final name,
+   and the next run would skip it:
+
+   ```
+   rsync -zS --compress-choice=zstd --info=progress2 --ignore-existing \
+       --chmod=F0444 -e 'ssh -A' --rsync-path='sudo rsync' \
+       image/build/guest.img \
+       <admin user>@<host>:/var/lib/libvirt/images/guest-base.img
+   ```
+
+   After a cut transfer, remove the file `.guest-base.img.*` in that directory
+   and run the command again.
+
+6. On the host, create and start the guest:
+
+   ```
+   sudo quarry-guest create --base /var/lib/libvirt/images/guest-base.img
+   sudo quarry-guest start
+   sudo quarry-guest status
+   ```
+
+7. On your daily machine, log in to the guest as the Claude account through the
+   host. The host knows the name of the guest. Your LAN does not:
+
+   ```
+   ssh -J <admin user>@<host> claude@quarry-guest
+   ```
+
+8. In the guest, start `tmux`, then `claude`, and run `/login`.
 
 ### Test the images
 
@@ -170,20 +223,6 @@ SSH settings, the configuration directory of Claude Code, and the managed files.
 are in `test/manual/real-host.md`, and the checks that need a login to Claude
 Code are in `test/manual/real-guest.md`.
 
-### Read the facts of a host
-
-`host/discover.sh` reads the IOMMU groups, the reset methods of the PCI devices,
-the USB tree, the network, the disks, the boot loader, the firewall, and the
-installed packages of a host. It changes nothing. Run it as a user that can use
-`sudo`:
-
-```
-host/discover.sh
-```
-
-The output goes to `host/discovery/`. Run the script again after a hardware
-change, and compare the two files.
-
 ## Conventions
 
 - Prose follows ASD-STE100 (Simplified Technical English) and uses US English
@@ -193,8 +232,8 @@ change, and compare the two files.
 - A claim that nobody has verified carries a marker such as `[A07]` in the design
   documents. It points to a row in `doc/assumptions.md`. When someone verifies the
   claim, delete the row and the marker.
-- Each runbook step states its expected result. Record the real result after a
-  run on a real host.
+- The manual checks in `test/manual/` state the expected result. Record the real
+  result in your own notes after a run on a real host.
 
 ## Related work
 

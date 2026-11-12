@@ -4,8 +4,8 @@ A small USB installer writes the host baseline image to the disk of the host.
 `image/installer.yaml` builds it, and `image/build.sh` builds it after the host
 image.
 
-**The install erases the whole target disk.** The README and the first page of
-the runbook must say this in plain words.
+**The install erases the whole target disk.** The README must say this in plain
+words, both in its warning and in the deploy steps.
 
 ## Design
 
@@ -52,8 +52,8 @@ does these steps in order:
 
 `bmaptool` does not write blocks that are empty in the image. Old data of the
 target disk stays in those blocks. `wipefs` removes the file system signatures
-only. This does not erase old data. Say this in the runbook if the old disk
-held secrets.
+only. This does not erase old data. Say this in the README if the old disk held
+secrets.
 
 ## Build settings
 

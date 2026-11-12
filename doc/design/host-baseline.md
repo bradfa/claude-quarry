@@ -1,8 +1,8 @@
 # Host baseline
 
-The runbook starts from a fixed host baseline that the owner controls. The
-baseline is a debos image. `image/host.yaml` builds it. The USB installer
-writes it to the host disk (see `installer.md`).
+The deploy steps in the README start from a fixed host baseline that the owner
+controls. The baseline is a debos image. `image/host.yaml` builds it. The USB
+installer writes it to the host disk (see `installer.md`).
 
 ## Requirements for the host
 
