@@ -239,8 +239,10 @@ scp doc/examples/claude-user-settings.json \
   repository chooses the channel (see Install).
 - The model in the file (Sonnet, medium effort) is the default for all
   sessions (see Decisions).
-- `enableArtifact` and `remoteControlAtStartup` are `true`. Both are `false` on
-  the daily machine of the owner.
+- `remoteControlAtStartup` is `true` on purpose. The owner can then talk to a
+  session when no SSH connection to tmux is possible. See the risk table.
+- `enableArtifact` is `true`. Both keys are `false` on the daily machine of the
+  owner.
 - Nobody has tested this file in a guest [A40].
 
 ## Provisioning script
@@ -332,6 +334,7 @@ git push origin quarry/branch:branch
 | Anthropic enforces its "ordinary use" wording against unattended runs | The owner states that unattended use is normal on Teams. Attend at the start and at the end of each session. Keep the setup single-user | Open. The documentation does not confirm it |
 | The classifier is the only gate for Bash, because the sandbox is not used | Auto mode guidance. The VM and the host firewall are the boundary | Accepted by the owner |
 | A prompt injection plants a hook, a skill, an agent, or a permission rule in the data disk, and it stays after resets | Root-owned managed settings with the locks above. Only plugins from the root-owned marketplace load | Design intent. Needs [A35] |
+| Remote control makes the claude.ai account of the owner a way to give commands to the guest | Protect that account. The guest holds no other credentials, and the firewall of the host still limits the network. Set `remoteControlAtStartup` to `false` to turn it off | Accepted by the owner. Not tested in a guest [A40] |
 | The managed file is ignored, because the admin console of the Teams organization starts to deliver managed settings | Check `Setting sources` in `/status` after each login | Open [A35] |
 
 ## Sources
