@@ -308,6 +308,35 @@ setting.
 - The ESP mount point has a trailing slash in `/etc/fstab`, so `bootctl` shows
   double slashes. This is cosmetic.
 
+## CPU flaws and SMT
+
+When the guest starts, the kernel of the reference host writes this line to the
+console: `kvm_intel: L1TF CPU bug present and SMT on, data leak possible` (see
+CVE-2018-3646). The i7-4770 has the L1 Terminal Fault flaw. The kernel flushes
+the L1 data cache at each guest entry. With SMT (hyperthreading) on, the second
+thread of a core can still run while the guest runs, so the kernel cannot close
+the gap. Code in the guest that controls its own page tables (guest root, or a
+kernel bug in the guest) could then try to read host memory. Other flaws of this
+kind, for example MDS, have the same dependency on SMT.
+
+The owner accepts this risk, and the image keeps SMT on. These are the reasons:
+
+- The attacker needs control of the guest kernel. The design already accepts
+  that Claude can get root in the guest (see `guest-access.md`). This is the
+  next step of the same attack.
+- The host holds little of value. It has no git credential, no cloud
+  credential, and no Claude token. It has the SSH host key and the Tailscale
+  node key, and the policy in `network.md` limits what that key can reach. The
+  host runs one guest only, so there is no other guest to read.
+- The `nosmt` kernel option closes the gap, but it halves the threads. The host
+  would have 4 threads for a guest with 6 vCPUs, and builds would be much
+  slower.
+
+If the situation changes, these are the options. Add `nosmt` to the kernel
+command line, or pin the vCPUs of the guest to chosen cores with `cputune` in
+the libvirt domain. Change the decision if the host gets a second guest, a
+credential, or a user who is not the owner.
+
 ## Not verified
 
 - The `en*` match does not match a NIC that is bound to `vfio-pci` [A26].
@@ -324,6 +353,7 @@ setting.
 | A `shim` update has only the 2023 signature, and the firmware has no 2023 CA. The host then does not boot after the next reboot. | Run `fwupdmgr update` first, to add the 2023 CA to the firmware `db` | Open |
 | A `shim` update drops the signature that `SHIM_REMOVE_SIGNATURE` keeps. The script then removes nothing and the host can show the red box after the next reboot. | The build stops in this case, and the script writes a warning. Read the `shim-signed` changelog before an update [A39] | Open |
 | Secure Boot does not verify the initrd, the command line, and the root file system | Daily updates and fast patches. The USB installer is the recovery | Accepted by the owner |
+| A guest that controls its page tables reads host memory through the L1 cache (L1TF and similar flaws), because SMT is on | The host holds no git, cloud, or Claude credential, and it runs one guest. See CPU flaws and SMT | Accepted by the owner |
 
 ## Tests
 
