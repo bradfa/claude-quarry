@@ -79,6 +79,7 @@ actions:
       - git
       - gpg
       - iproute2
+      - jq
       - less
       - linux-image-amd64
       - locales

@@ -430,7 +430,7 @@ def test_7_03_marketplaces_are_locked(guest_a, settings):
 # Step 8: the build tools
 
 @pytest.mark.parametrize("tool", ["gcc", "make", "gawk", "chrpath", "cpio", "diffstat", "socat", "unzip",
-                                  "wget", "zstd", "lz4", "git", "tmux", "python3", "makeinfo", "file"])
+                                  "wget", "zstd", "lz4", "git", "tmux", "python3", "makeinfo", "file", "jq"])
 def test_8_01_tool_is_installed(guest_a, settings, tool):
     check_as_claude(guest_a, settings, f"command -v {tool}")
 
