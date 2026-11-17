@@ -49,6 +49,7 @@ daily machine:
 Host quarry-host
     HostName quarry-host.local
     User admin
+    ForwardAgent yes
 
 Host quarry-guest
     User claude
@@ -65,8 +66,10 @@ Host quarry-guest-admin
 - The guest has no address on the LAN. Its address is on the `quarry` network of
   the host (see `network.md`), and only the host knows its name. `ProxyJump`
   makes the host open the connection, so the host resolves the name. The host
-  only relays the connection. It never sees the agent, and the `ForwardAgent`
-  line applies to the guest.
+  only relays the connection. The `ForwardAgent` line of the target applies to
+  the guest, so `quarry-guest` forwards no agent. The line `ForwardAgent yes` in
+  the `quarry-host` block is for a login to the host, where `sudo` asks the
+  forwarded agent (see `host-baseline.md`).
 - `AllowUsers` lists exactly the two accounts.
 - `AuthorizedKeysFile` points to a directory that root owns. Claude cannot
   add a key to its own account, and it cannot change the options of a key. With
