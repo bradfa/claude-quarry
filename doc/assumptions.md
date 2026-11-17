@@ -48,7 +48,6 @@ The git history keeps the deleted rows.
 | A37 | The `.local` name of the host resolves on the LAN of the owner, and the router does not drop multicast. | host-baseline | Run `ssh -A <user>@<host name>.local` from the daily machine (`test/manual/real-host.md`, check 2.9). |
 | A38 | `efi-updatevar` can write `db`, `KEK`, and then `PK` on the AMI firmware of the HP EliteDesk in Setup Mode, and the host then boots with Secure Boot on. The virtual machine tests show it with OVMF only. | host-baseline | Run `sudo quarry-enroll-secure-boot-keys` on the real host (`test/manual/real-host.md`, section 4). Reboot, and run `mokutil --sb-state`. |
 | A39 | Each new `shim-signed` package keeps the signature that `SHIM_REMOVE_SIGNATURE` keeps, so the script finds a signature to remove and the host still boots. | host-baseline | Read the `shim-signed` changelog before each update, and build an image after it. `quarry-shim-signature` writes a warning if the signature is missing. |
-| A40 | Every key in `doc/examples/claude-user-settings.json` is valid in the Claude Code release of the guest, and the user file applies, because the managed file sets none of those keys. | claude-code | Copy the file to `/data/claude-config/settings.json` in a guest. Start Claude Code. Check vim mode, the model and effort, `enableArtifact`, and `remoteControlAtStartup`. Run `claude doctor` and read the warnings. |
 
 ## Open questions
 
