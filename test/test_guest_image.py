@@ -396,7 +396,12 @@ def test_7_02_managed_settings_content(guest_a):
     assert managed["allowManagedPermissionRulesOnly"] is True
     assert managed["allowManagedHooksOnly"] is True
     assert managed["strictKnownMarketplaces"] == []
-    assert "$defaults" in managed["autoMode"]["environment"]
+    for name in ("environment", "allow"):
+        assert "$defaults" in managed["autoMode"][name], name
+    assert any("10.250.1.0/24" in e for e in managed["autoMode"]["environment"])
+    allow = " ".join(managed["autoMode"]["allow"])
+    for tool in ("bitbake", "devtool", "kas", "whisk", "bitbake-setup", "repo sync", "git clone"):
+        assert tool in allow, tool
     assert managed["env"]["CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY"] == "1"
     assert managed["env"]["CLAUDE_CODE_ATTRIBUTION_HEADER"] == "0"
     assert managed["attribution"] == {"commit": "", "pr": ""}

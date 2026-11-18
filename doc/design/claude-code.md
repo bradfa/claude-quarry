@@ -12,7 +12,7 @@ directory that the host keeps up to date.
 | Model | Sonnet with medium effort, set in the user settings file. | Auto mode works with Sonnet on the Teams account (seen in `/status` and the prompt bar of the real guest on 2026-11-12). See User settings. |
 | Unattended use | The owner states that unattended use is normal on Teams. The owner attends at the start and at the end of each session. | The Anthropic legal page says that OAuth login supports "ordinary use" and that Anthropic may enforce its rules without notice. Keep this note [Q14]. |
 | Classifier cost | The owner states that classifier calls do not count against quota on Teams. | The documentation lists classifier calls as counted for Enterprise and API accounts. It does not list Team. The classifier runs on Sonnet 5 by default. |
-| Permissions | Auto mode with written guidance. No hard allow, ask, or deny rules. | See Permissions below. |
+| Permissions | Auto mode with written guidance and a short `autoMode.allow` list. No `permissions` allow, ask, or deny rules. | See Permissions below. |
 | Sandbox | The Claude Code sandbox is not used. | See below. |
 | Credentials | The guest holds no git or cloud credentials. The Claude login is the only token. The Claude account can read it, and the owner accepts this. | The guest can fetch from the internet without authentication. See Login. |
 | Config directory | `/data/claude-config` on the data disk, set with `CLAUDE_CONFIG_DIR`. The home directory stays on the overlay. | See Configuration directory. |
@@ -100,7 +100,8 @@ directory that the host keeps up to date.
 
 ## Permissions
 
-Use auto mode with guidance and no hard allow, ask, or deny rules.
+Use auto mode with guidance and a short `autoMode.allow` list. Use no
+`permissions` allow, ask, or deny rules.
 
 - Auto mode is available on all plans. On Team and Enterprise it is on by
   default. An administrator can turn it off in managed settings. The company may
@@ -111,8 +112,23 @@ Use auto mode with guidance and no hard allow, ask, or deny rules.
 - The `autoMode` settings apply from user or managed settings only. Put them in
   the managed settings file (see Managed files), so that Claude cannot change
   them. Write the guidance there: describe the VM, say what is allowed, and say
-  what needs a human. Read the auto mode configuration page for the exact keys
-  [Q11]. `claude auto-mode config` prints the effective rules.
+  what needs a human. `claude auto-mode config` prints the effective rules.
+- The documentation ranks only the rule lists: `hard_deny`, then `soft_deny`,
+  then `allow`, then explicit user intent. It gives no rank to the entries of
+  `environment`, and it does not say that a later entry replaces a default entry
+  on the same topic. Our entries sit beside four default entries that say
+  "None configured". So `environment` gives context only. Put a rule that must
+  hold in `allow`, `soft_deny`, or `hard_deny`.
+- Every list keeps `"$defaults"`. The documentation says that a list without it
+  loses the built-in entries of that list, and it does not say what the server
+  side rules then do. The sensitive data, `prod`, and infrastructure-as-code
+  defaults are `environment` entries.
+- The managed file has an `allow` list with two entries: the Yocto build tools
+  (`bitbake`, `devtool`, `kas`, `whisk`, `bitbake-setup`, `repo sync`, and a
+  `git clone` of layers), and the rewrite of local commits that the session
+  made. The `environment` list names the board network (see `network.md`).
+- Not done yet: a rule for `git push` (see the local forge idea), a rule for
+  writes to a disk device, and the PDU.
 - The classifier is the only gate for Bash. A prompt injection can influence it.
   Treat it as a tool that reduces prompts, not as a security boundary. The VM
   and the host firewall are the boundary.
@@ -177,7 +193,7 @@ the only allowed marketplace source (see below).
 
 Keys of the managed settings:
 
-- `permissions.defaultMode: "auto"` and the `autoMode` guidance [Q11].
+- `permissions.defaultMode: "auto"` and the `autoMode` guidance.
 - `allowManagedPermissionRulesOnly: true`. Rules that Claude Code saves from a
   prompt ("Yes, and do not ask again") have no effect.
 - `strictPluginOnlyCustomization: true`. Skills, agents, hooks, and MCP servers

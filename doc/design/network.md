@@ -14,7 +14,9 @@ tests run in a virtual machine only, and nothing has run on a real host.
     addresses are `10.250.0.0/24`. The host is `10.250.0.1`. The image has no
     `default` network.
   - The second is the passthrough Ethernet card (see `passthrough.md`). Cable it
-    directly to the board or to a dedicated switch.
+    directly to the board or to a dedicated switch. Its addresses are
+    `10.250.1.0/24`, and the guest is `10.250.1.1`. The auto mode entries in
+    the managed settings name this network (see `claude-code.md`).
 - Never cable the board network to the office LAN or to any uplink.
 - The guest runs a DHCP server on the board network. The host has no address on
   it.

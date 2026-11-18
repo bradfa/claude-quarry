@@ -22,7 +22,7 @@ Log in as the Claude account. Start `claude` in tmux, and run `/login`.
 | 1.2 | `/status`, line `Login method` | `Claude Team account` | |
 | 1.3 | `ls -l /data/claude-config/.credentials.json` | Owner is the Claude account, mode 0600 | |
 | 1.4 | `claude auth status` after a reboot of the guest and after an overlay reset | Still logged in | |
-| 1.5 | Press Shift+Tab until the mode changes, or run `/status` | The permission mode is `auto`, and `claude auto-mode config` lists the entries of `autoMode.environment` from the managed file | Q11 |
+| 1.5 | Press Shift+Tab until the mode changes, or run `/status` | The permission mode is `auto`, and `claude auto-mode config` lists the entries of `autoMode.environment` and `allow` from the managed file | |
 | 1.6 | `ANTHROPIC_API_KEY=x claude` | Claude Code refuses to start with that key | |
 
 ## 2. Locks
