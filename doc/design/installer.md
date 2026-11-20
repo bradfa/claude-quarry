@@ -9,8 +9,8 @@ words, both in its warning and in the deploy steps.
 
 ## Design
 
-- The installer is a small Debian 13 system with `bmaptool`, the `zstd`
-  program, the compressed host image, the `.bmap` file of that image, and one
+- The installer is a small Debian 13 system with `bmaptool`, `sfdisk`, the
+  `zstd` program, the compressed host image, the `.bmap` file of that image, and one
   install script (`quarry-install`).
 - The recipe copies `host.img.zst` and `host.bmap` from the artifact directory
   (`$ARTIFACTDIR`) into `/usr/share/quarry`. The installer recipe needs no
@@ -49,6 +49,10 @@ does these steps in order:
    is confirmed with the device path.
 5. It runs `wipefs` on the disk, and then `bmaptool copy` with the `.bmap`
    file.
+6. It runs `sfdisk --relocate gpt-bak-std`. The image is smaller than the
+   disk, so the copy leaves the backup GPT header in the middle of the disk,
+   and the kernel warns about it. The command moves the header to the end of
+   the disk. The installer has the `fdisk` package for `sfdisk`.
 
 `bmaptool` does not write blocks that are empty in the image. Old data of the
 target disk stays in those blocks. `wipefs` removes the file system signatures

@@ -79,6 +79,9 @@ echo "Removing the old signatures from $disk"
 wipefs --all --force "$disk"
 echo "Writing $image to $disk"
 bmaptool copy --bmap "$bmap" "$image" "$disk"
+# The image is smaller than the disk, so the copy leaves the backup GPT header
+# in the middle of the disk. The kernel and the first boot warn about it.
+sfdisk --relocate gpt-bak-std "$disk"
 sync
 udevadm settle
 echo

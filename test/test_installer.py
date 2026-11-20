@@ -123,6 +123,13 @@ def test_3_08_target_has_the_image_partitions(installer, target, installed):
     assert_image_partitions(lsblk_children(out))
 
 
+def test_3_08a_backup_gpt_header_is_at_the_end_of_the_disk(installer, target, installed):
+    # The image is smaller than the disk. Without a relocation, fdisk reports
+    # that the backup GPT table is not on the end of the device.
+    out = installer.check(f"fdisk -l {target} 2>&1").output
+    assert "backup GPT" not in out, out
+
+
 def test_3_09_installer_boots_with_secure_boot(installer):
     # The suite boots every machine with the Secure Boot firmware. The USB
     # stick must boot on a PC that has Secure Boot on.
