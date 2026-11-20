@@ -404,7 +404,9 @@ def test_7_02_managed_settings_content(guest_a):
     assert managed["strictKnownMarketplaces"] == []
     for name in ("environment", "allow"):
         assert "$defaults" in managed["autoMode"][name], name
-    assert any("10.250.1.0/24" in e for e in managed["autoMode"]["environment"])
+    environment = managed["autoMode"]["environment"]
+    assert any(e.startswith("Trusted internal destinations") and "10.250.1.0/24" in e for e in environment)
+    assert any(e.startswith("Trusted source hosts") for e in environment)
     allow = " ".join(managed["autoMode"]["allow"])
     for tool in ("bitbake", "devtool", "kas", "whisk", "bitbake-setup", "repo sync", "git clone"):
         assert tool in allow, tool

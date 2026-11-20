@@ -42,11 +42,11 @@ directory that the host keeps up to date.
   `unattended-upgrades`, and the `autoUpdatesChannel` key in the drop-in
   `/etc/claude-code/managed-settings.d/10-channel.json`, so no value appears
   twice. The key has an effect with an apt install: without it, Claude Code
-  shows an update notice at start (tested 2026-11-20 in the real guest). The `stable` channel is
-  about one week behind `latest`, and it skips releases with major
-  regressions. A newly launched model can need a newer version than `stable`
-  has. Then build the image with `latest`. The guest is disposable, so a
-  rebuild is the way to change the channel.
+  shows an update notice at start (tested 2026-11-20 in the real guest). The
+  `stable` channel is about one week behind `latest`, and it skips releases
+  with major regressions. A newly launched model can need a newer version than
+  `stable` has. Then build the image with `latest`. The guest is disposable, so
+  a rebuild is the way to change the channel.
 - Pin the repository to one package. The pin file
   `/etc/apt/preferences.d/claude-code` has a negative priority for every
   package of the repository, and a normal priority for `claude-code`. Apt
@@ -126,12 +126,32 @@ Use auto mode with guidance and a short `autoMode.allow` list. Use no
   loses the built-in entries of that list, and it does not say what the server
   side rules then do. The sensitive data, `prod`, and infrastructure-as-code
   defaults are `environment` entries.
-- The managed file has an `allow` list with two entries: the Yocto build tools
-  (`bitbake`, `devtool`, `kas`, `whisk`, `bitbake-setup`, `repo sync`, and a
-  `git clone` of layers), and the rewrite of local commits that the session
-  made. The `environment` list names the board network (see `network.md`).
+- The managed file has an `allow` list with three entries:
+  - The Yocto build tools and the commands around them (`bitbake`, `devtool`,
+    `kas`, `whisk`, `bitbake-setup`, `repo sync`, `git clone`,
+    `oe-init-build-env`, `runqemu`, `wic`, `devtool deploy-target`, and `make`
+    in a cloned kernel or U-Boot tree). They are covered for sources that the
+    project files name, that the owner names, or that come from the trusted
+    source hosts. If Claude adds a layer or changes a `SRC_URI`, `SRCREV`, or
+    manifest entry to another host, the build is not covered. A prompt
+    injection could otherwise add a layer and run its code. The flags that
+    discard work (`repo sync --force-sync`, `repo sync -d`, `kas --update`) are
+    not covered.
+  - The rewrite of local commits. Every rewritten commit must come from the
+    session, and `git reset --hard` needs a clean working tree.
+  - Serving build artifacts from the guest to the board network (TFTP, NFS,
+    HTTP). A change to the DHCP, TFTP, or NFS configuration is not covered,
+    because a root-owned generator writes it (see `guest-access.md`).
+- The `environment` list has an entry for the board network
+  `10.250.1.0/24` (see `network.md`) under the name "Trusted internal
+  destinations". Without such an entry, the default "None configured" makes a
+  copy of an image to a board look like data leaving the machine. It also
+  has an entry "Trusted source hosts" for adding layers: `git.yoctoproject.org`,
+  `git.openembedded.org`, `github.com/openembedded`, `github.com/yoctoproject`,
+  and `git.kernel.org`. The list is the choice of the owner for this site. A
+  later lab file can hold it (see the lab configuration idea).
 - Not done yet: a rule for `git push` (see the local forge idea), a rule for
-  writes to a disk device, and the PDU.
+  writes to a disk device, the PDU, and the credentials of the boards.
 - The classifier is the only gate for Bash. A prompt injection can influence it.
   Treat it as a tool that reduces prompts, not as a security boundary. The VM
   and the host firewall are the boundary.
