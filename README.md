@@ -124,16 +124,16 @@ implementation differs, we change the document.
 
 ### Build the images
 
-The images have no user name and no SSH key in them. You give both to the build
-script.
+The images have no SSH key in them. You give the key to the build script. The
+administrator user is `admin`.
 
 ```
 cp image/build.conf.example image/build.conf
 ```
 
-Edit `image/build.conf`. Set `ADMIN_USER` and `ADMIN_SSH_KEY_FILE`. Each setting
-has a comment. The script also asks for the two required settings if you leave
-them out, and it stops with an error if a value is missing. Then run:
+Edit `image/build.conf`. Set `ADMIN_SSH_KEY_FILE`. Each setting has a comment.
+The script also asks for the key file if you leave it out, and it stops with an
+error if a value is missing. Then run:
 
 ```
 image/build.sh

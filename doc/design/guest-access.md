@@ -19,8 +19,8 @@ page are design intent and are not tested, unless a point says that it is.
 ## Accounts
 
 - The image build takes two user names. `CLAUDE_USER` has the default `claude`.
-  `ADMIN_USER` has no default, as on the host. The build stops if a name is
-  `root`, or if the two names are the same.
+  `ADMIN_USER` has the default `admin`, as on the host. The build stops if a
+  name is `root`, or if the two names are the same.
 - The Claude account is not in the `sudo` group and has no `sudoers` rule.
 - The admin account is in the `sudo` group.
 - Each home directory has mode 0700, so neither account can read the other.

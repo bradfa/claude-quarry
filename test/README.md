@@ -65,7 +65,7 @@ What the configuration means:
 
 | Line | Reason |
 | --- | --- |
-| `ADMIN_USER=tester` | Any valid Linux user name. The image has no other user |
+| `ADMIN_USER=tester` | Any valid Linux user name. Without this line, the user is `admin` |
 | `ADMIN_SSH_KEY_FILE` | A public key. The private key must be in the same directory, with the same name but without `.pub`, and it must have no passphrase. Use a new key, not your own |
 | `SUDO_MODE=agent` | `sudo` asks an SSH agent to sign a challenge. This is the default of the project. The other mode is `nopasswd`, where `sudo` needs nothing |
 | `KERNEL_CMDLINE_EXTRA` | Makes the serial port the system console. Test 3.1 reads the boot messages from it |

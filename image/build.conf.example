@@ -1,10 +1,11 @@
 # Settings for image/build.sh. Copy this file to image/build.conf and edit it.
 # Use KEY=value lines. Do not use quotes or spaces around the equals sign.
 # An environment variable with the same name overrides a value in this file.
-# build.sh asks for ADMIN_USER and ADMIN_SSH_KEY_FILE if you leave them out.
+# build.sh asks for ADMIN_SSH_KEY_FILE if you leave it out.
 
-# Required. Name of the first user. This user gets sudo. Root cannot log in.
-ADMIN_USER=alice
+# Name of the first user. The default is admin. This user gets sudo. Root cannot
+# log in.
+ADMIN_USER=admin
 
 # Required. Path to the public key of ADMIN_USER. The key is not secret.
 # A password login does not exist, so this key is the only way in.

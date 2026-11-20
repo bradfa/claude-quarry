@@ -35,7 +35,7 @@ off VMX, so the `kvm-ok` tool is not needed.
 | `sudo` | The forwarded SSH agent gates `sudo` (`pam_ssh_agent_auth`). The build variable `SUDO_MODE=nopasswd` removes the check. |
 | Time sync | `chrony` with the global `pool.ntp.org` pool. `chrony` handles a bad clock better than `ntpd`. |
 | Updates | `unattended-upgrades` installs the updates of the Debian and security suites every day. It never reboots the host. |
-| Image settings | The build script takes the user name, the SSH key, and other settings from environment variables, a config file, or a prompt. The recipes hold no user name and no key. |
+| Image settings | The build script takes the user name (default `admin`), the SSH key, and other settings from environment variables, a config file, or a prompt. The recipes hold no user name and no key. |
 | Host disk | Use the existing spinning disk first. |
 
 ## The image
@@ -294,8 +294,9 @@ Each host makes its own on the first boot. `first-boot.service` runs
 ### Build settings
 
 `image/build.sh` takes each setting from an environment variable, then from
-`image/build.conf`, and then from a prompt on a terminal. A required setting
-with no value stops the script. `image/build.conf.example` documents each
+`image/build.conf`, and then from a prompt on a terminal. A setting with a
+default (the user name is `admin`) uses it. A required setting with no value
+stops the script. `image/build.conf.example` documents each
 setting.
 
 ## Known issues

@@ -51,9 +51,9 @@ prompt_for() {
 
 load_config "$conf_file"
 
-prompt_for ADMIN_USER "Name of the first (administrator) user"
-prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for that user"
+prompt_for ADMIN_SSH_KEY_FILE "Path to the SSH public key file for the administrator user"
 
+: "${ADMIN_USER:=admin}"
 : "${SUDO_MODE:=agent}"
 : "${HOST_NAME:=quarry-host}"
 : "${IMAGE_SIZE:=34GB}"

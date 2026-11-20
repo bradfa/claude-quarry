@@ -51,9 +51,11 @@ def load() -> Settings:
         if name in os.environ:
             values[name] = os.environ[name]
 
-    for name in ("ADMIN_USER", "ADMIN_SSH_KEY_FILE"):
-        if not values.get(name):
-            raise ValueError(f"{name} is not set. Set it in image/build.conf or in the environment")
+    # Same default as image/build.sh.
+    if not values.get("ADMIN_USER"):
+        values["ADMIN_USER"] = "admin"
+    if not values.get("ADMIN_SSH_KEY_FILE"):
+        raise ValueError("ADMIN_SSH_KEY_FILE is not set. Set it in image/build.conf or in the environment")
 
     # The tests log in with the private key that belongs to the public key of
     # the image. It must have no passphrase, because no one is there to type it.
