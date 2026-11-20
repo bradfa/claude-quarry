@@ -156,10 +156,37 @@ Invalid signature detected" box. In that case, set `SHIM_REMOVE_SIGNATURE` in
 and in the host image, and the host image removes it again after each package
 update. See `image/build.conf.example` and `doc/design/host-baseline.md`.
 
+### Set up SSH on your daily machine
+
+Add this to `~/.ssh/config`. The names are the defaults of `HOST_NAME` and
+`GUEST_NAME`. The user `admin` is the default of `ADMIN_USER`.
+
+```
+Host quarry-host
+    HostName quarry-host.local
+    User admin
+    ForwardAgent yes
+
+Host quarry-guest
+    User claude
+    ForwardAgent no
+    ProxyJump quarry-host
+
+Host quarry-guest-admin
+    HostName quarry-guest
+    User admin
+    ForwardAgent yes
+    ProxyJump quarry-host
+```
+
+Your LAN does not know the name of the guest. `ProxyJump` makes the host open
+the connection, and the host knows the name. `ForwardAgent yes` lets `sudo` ask
+your SSH agent, so the agent must hold the key of `ADMIN_USER` (`ssh-add -l`
+shows it).
+
 ### Deploy to a real host
 
-These steps have not run on a real host yet. Delete this sentence after the
-first run. The checks for each step are in `test/manual/real-host.md` and
+The checks for each step are in `test/manual/real-host.md` and
 `test/manual/real-guest.md`.
 
 1. Build the images (see above).
@@ -174,8 +201,11 @@ first run. The checks for each step are in `test/manual/real-host.md` and
    to find the target disk, and then run `quarry-install /dev/<disk>`. The
    installer erases that disk. When it ends with `Done.`, run `poweroff` and
    remove the stick.
-4. Switch the host on. Log in from your daily machine with the `ssh -A` command
-   that the login prompt on the monitor shows.
+4. Switch the host on. Log in from your daily machine:
+
+   ```
+   ssh quarry-host
+   ```
 5. Copy the guest image to the host. The base image must stay in a place that
    QEMU can read, and it must never change while a guest uses it. The image is
    a sparse file. `scp` sends every empty block, so use `rsync`. The option
@@ -187,15 +217,15 @@ first run. The checks for each step are in `test/manual/real-host.md` and
 
    ```
    rsync -zS --compress-choice=zstd --info=progress2 --ignore-existing \
-       --chmod=F0444 -e 'ssh -A' --rsync-path='sudo rsync' \
+       --chmod=F0444 --rsync-path='sudo rsync' \
        image/build/guest.img \
-       <admin user>@<host>:/var/lib/libvirt/images/guest-base.img
+       quarry-host:/var/lib/libvirt/images/guest-base.img
    ```
 
    After a cut transfer, remove the file `.guest-base.img.*` in that directory
    and run the command again.
 
-6. On the host, create and start the guest:
+6. On the host (`ssh quarry-host`), create and start the guest:
 
    ```
    sudo quarry-guest create --base /var/lib/libvirt/images/guest-base.img
@@ -203,11 +233,10 @@ first run. The checks for each step are in `test/manual/real-host.md` and
    sudo quarry-guest status
    ```
 
-7. On your daily machine, log in to the guest as the Claude account through the
-   host. The host knows the name of the guest. Your LAN does not:
+7. On your daily machine, log in to the guest as the Claude account:
 
    ```
-   ssh -J <admin user>@<host> claude@quarry-guest
+   ssh quarry-guest
    ```
 
 8. In the guest, start `tmux`, then `claude`, and run `/login`.
