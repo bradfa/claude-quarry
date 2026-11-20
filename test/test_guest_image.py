@@ -366,6 +366,12 @@ def test_6_05_updates_include_the_repository(guest_a, settings):
     assert line in config
 
 
+def test_6_05a_channel_setting_matches_the_repository(guest_a, settings):
+    path = "/etc/claude-code/managed-settings.d/10-channel.json"
+    assert json.loads(guest_a.check(f"cat {path}").stdout) == {"autoUpdatesChannel": settings.claude_code_channel}
+    assert guest_a.check(f"stat -c %U:%G {path}").stdout.strip() == "root:root"
+
+
 @pytest.mark.parametrize("timer", ["apt-daily.timer", "apt-daily-upgrade.timer"])
 def test_6_06_update_timer_active(guest_a, timer):
     assert guest_a.check(f"systemctl is-enabled {timer}").stdout.strip() == "enabled"

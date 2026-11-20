@@ -38,8 +38,11 @@ directory that the host keeps up to date.
   with that file.
 - The build variable `CLAUDE_CODE_CHANNEL` is `stable` or `latest`, and the
   default is `stable`. The build stops on any other value. The variable sets
-  the repository URL, the suite name, and the origin line for
-  `unattended-upgrades`, so no value appears twice. The `stable` channel is
+  the repository URL, the suite name, the origin line for
+  `unattended-upgrades`, and the `autoUpdatesChannel` key in the drop-in
+  `/etc/claude-code/managed-settings.d/10-channel.json`, so no value appears
+  twice. The key has an effect with an apt install: without it, Claude Code
+  shows an update notice at start (tested 2026-11-20 in the real guest). The `stable` channel is
   about one week behind `latest`, and it skips releases with major
   regressions. A newly launched model can need a newer version than `stable`
   has. Then build the image with `latest`. The guest is disposable, so a
@@ -184,6 +187,7 @@ would otherwise stay after every reset. The files are in the image:
 | File or directory | Content |
 | --- | --- |
 | `/etc/claude-code/managed-settings.json` | The settings below. They rank above user, project, and local settings, and above `--settings`. |
+| `/etc/claude-code/managed-settings.d/10-channel.json` | The update channel (`autoUpdatesChannel`), the same as the apt repository. Drop-ins merge after the main file. |
 | `/etc/claude-code/CLAUDE.md` | The guidance for the guest. A user cannot exclude this file. |
 
 The image has no marketplace yet, because the owner has no plugin yet. Then no
@@ -251,8 +255,8 @@ scp doc/examples/claude-user-settings.json \
 - `model` is only in this file. The documentation of Claude Code says two
   different things about a managed `model`, so do not set it in the managed
   file.
-- The file has no `autoUpdatesChannel` and no `minimumVersion`. The apt
-  repository chooses the channel (see Install).
+- The file has no `autoUpdatesChannel` and no `minimumVersion`. The image sets
+  the channel in a managed drop-in (see Install), and a managed value wins.
 - The model in the file (Sonnet, medium effort) is the default for all
   sessions (see Decisions).
 - `remoteControlAtStartup` is `true` on purpose. The owner can then talk to a

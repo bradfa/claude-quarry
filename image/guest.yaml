@@ -376,9 +376,10 @@ actions:
   # The package comes from the signed apt repository of Anthropic, so root owns
   # the binary and Claude cannot change it (see doc/design/claude-code.md). The
   # build stops if the key is not the one that Anthropic publishes. The channel
-  # sets the repository URL, the suite, and the origin line for
-  # unattended-upgrades. The pin file in the overlay limits the repository to
-  # one package.
+  # sets the repository URL, the suite, the origin line for
+  # unattended-upgrades, and the autoUpdatesChannel of Claude Code. Without
+  # that key, Claude Code shows an update notice for the other channel. The pin
+  # file in the overlay limits the repository to one package.
   - action: run
     description: Install Claude Code from the Anthropic apt repository
     chroot: true
@@ -395,6 +396,9 @@ actions:
       echo 'deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/{{ $claude_code_channel }} {{ $claude_code_channel }} main' > /etc/apt/sources.list.d/claude-code.list
       echo "Writing /etc/apt/apt.conf.d/52quarry-claude-code"
       echo 'Unattended-Upgrade::Origins-Pattern:: "origin=Anthropic,codename={{ $claude_code_channel }},label=Anthropic";' > /etc/apt/apt.conf.d/52quarry-claude-code
+      echo "Writing /etc/claude-code/managed-settings.d/10-channel.json"
+      install -v -d -m 0755 /etc/claude-code/managed-settings.d
+      echo '{"autoUpdatesChannel": "{{ $claude_code_channel }}"}' > /etc/claude-code/managed-settings.d/10-channel.json
       apt-get update
       DEBIAN_FRONTEND=noninteractive apt-get -y install claude-code
       dpkg -L claude-code
