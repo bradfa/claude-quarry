@@ -79,7 +79,7 @@ before you run it.
 
 ## Status
 
-This project is in an early stage. Nothing has run on a real host yet.
+This project is in an early stage.
 
 | Part | State |
 | --- | --- |
