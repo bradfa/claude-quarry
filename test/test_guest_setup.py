@@ -163,6 +163,14 @@ def test_3_01_command_and_name(host, settings):
     assert fields[0] == GUEST_ADDRESS, fields
 
 
+def test_3_01a_messages_say_to_use_sudo(host):
+    # /usr/sbin is not in the PATH of a normal user, so give the full path.
+    assert "Usage: sudo quarry-guest" in host.check("/usr/sbin/quarry-guest --help").stdout
+    result = host.run("/usr/sbin/quarry-guest status")
+    assert result.returncode != 0
+    assert "use sudo" in result.stderr, result.stderr
+
+
 def test_3_02_create(host, settings):
     host.check_sudo(f"quarry-guest create --base {BASE_DISK} --memory 1024 --vcpus 1 --data-size 2")
     status = host.check_sudo("quarry-guest status").stdout

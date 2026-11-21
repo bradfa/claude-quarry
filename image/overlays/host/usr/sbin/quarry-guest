@@ -21,7 +21,9 @@ create_done=0
 
 usage() {
     cat <<'EOF'
-Usage: quarry-guest COMMAND [OPTIONS]
+Usage: sudo quarry-guest COMMAND [OPTIONS]
+
+Every command needs root. Run it with sudo.
 
 Commands:
   create --base FILE [--memory MIB] [--vcpus N] [--data-size GIB]
@@ -62,11 +64,11 @@ domain_state() {
 }
 
 require_domain() {
-    domain_exists || die "the guest $name does not exist. Run: quarry-guest create --base FILE"
+    domain_exists || die "the guest $name does not exist. Run: sudo quarry-guest create --base FILE"
 }
 
 require_stopped() {
-    [[ $(domain_state) == "shut off" ]] || die "the guest is not shut off. Run: quarry-guest stop"
+    [[ $(domain_state) == "shut off" ]] || die "the guest is not shut off. Run: sudo quarry-guest stop"
 }
 
 # Stop with a message when the option has no value.
@@ -201,7 +203,7 @@ cmd_create() {
     rm -f -- "$xml_file"
     create_done=1
     trap - EXIT
-    echo "Defined the guest $name. Start it with: quarry-guest start" >&2
+    echo "Defined the guest $name. Start it with: sudo quarry-guest start" >&2
 }
 
 cmd_start() {
