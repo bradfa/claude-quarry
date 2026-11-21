@@ -213,22 +213,26 @@ The checks for each step are in `test/manual/real-host.md` and
    them small on the wire. `--ignore-existing` protects a base image that a
    guest uses, because `rsync` skips a file that exists. Do not add
    `--partial`. A cut transfer would then leave a short file with the final name,
-   and the next run would skip it:
+   and the next run would skip it. Each copy gets a new name with a time
+   stamp, so the host can keep an older base image beside a new one:
 
    ```
+   stamp=$(date -u +%Y%m%d-%H%M%S)
+   echo "$stamp"
    rsync -zS --compress-choice=zstd --info=progress2 --ignore-existing \
        --chmod=F0444 --rsync-path='sudo rsync' \
        image/build/guest.img \
-       quarry-host:/var/lib/libvirt/images/guest-base.img
+       quarry-host:/var/lib/libvirt/images/guest-base-$stamp.img
    ```
 
-   After a cut transfer, remove the file `.guest-base.img.*` in that directory
-   and run the command again.
+   After a cut transfer, remove the file `.guest-base-*.img.*` in that
+   directory and run the command again.
 
-6. On the host (`ssh quarry-host`), create and start the guest:
+6. On the host (`ssh quarry-host`), create and start the guest. Use the stamp
+   that step 5 printed:
 
    ```
-   sudo quarry-guest create --base /var/lib/libvirt/images/guest-base.img
+   sudo quarry-guest create --base /var/lib/libvirt/images/guest-base-<stamp>.img
    sudo quarry-guest start
    sudo quarry-guest status
    ```
@@ -240,6 +244,60 @@ The checks for each step are in `test/manual/real-host.md` and
    ```
 
 8. In the guest, start `tmux`, then `claude`, and run `/login`.
+
+### Replace the guest image
+
+Do this when you rebuild the guest image. The running guest keeps its base
+image, and an overlay depends on that file. Never copy a new image over it.
+Copy the new image to a new name, and then reset the guest to use it. The
+reset replaces the system disk of the guest. Changes that you made outside
+`/data` are lost, and so are the packages that the daily update installed. The
+data disk stays: the workspace, the Claude login, and the SSH host keys.
+
+1. On the build machine, build the image:
+
+   ```
+   image/build.sh guest
+   ```
+
+2. Copy it to the host under a new name. This is the command of step 5 above,
+   with a new stamp:
+
+   ```
+   stamp=$(date -u +%Y%m%d-%H%M%S)
+   echo "$stamp"
+   rsync -zS --compress-choice=zstd --info=progress2 --ignore-existing \
+       --chmod=F0444 --rsync-path='sudo rsync' \
+       image/build/guest.img \
+       quarry-host:/var/lib/libvirt/images/guest-base-$stamp.img
+   ```
+
+3. On the host (`ssh quarry-host`), see which base image the guest uses now:
+
+   ```
+   sudo quarry-guest status
+   ```
+
+4. Stop the guest, reset it with the new base image, and start it. Use the
+   stamp from step 2:
+
+   ```
+   sudo quarry-guest stop
+   sudo quarry-guest reset --base /var/lib/libvirt/images/guest-base-<stamp>.img
+   sudo quarry-guest start
+   sudo quarry-guest status
+   ```
+
+   The `base image:` line must show the new file.
+
+5. Log in again from your daily machine with `ssh quarry-guest`. The Claude
+   login stays, and the SSH host key does not change.
+6. Remove the old base image, the one that step 3 showed. Do this only after
+   the reset:
+
+   ```
+   sudo rm /var/lib/libvirt/images/guest-base-<old stamp>.img
+   ```
 
 ### Test the images
 
